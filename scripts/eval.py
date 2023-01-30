@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
+import mediapy as media
 import tyro
 from rich.console import Console
 
@@ -24,12 +26,28 @@ class ComputePSNR:
     load_config: Path
     # Name of the output file.
     output_path: Path = Path("output.json")
+    # Name of the output file.
+    output_dir: Optional[Path] = None
 
     def main(self) -> None:
         """Main function."""
         config, pipeline, checkpoint_path = eval_setup(self.load_config)
         assert self.output_path.suffix == ".json"
-        metrics_dict = pipeline.get_average_eval_image_metrics()
+        save_imgs = self.output_dir is not None
+        output = pipeline.get_average_eval_image_metrics(return_imgs=save_imgs)
+        if save_imgs:
+            metrics_dict, images_dict = output
+            __import__("ipdb").set_trace()
+            assert self.output_dir is not None
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            imgs = images_dict["img"]
+            for i in range(len(imgs)):
+                media.write_image(
+                    self.output_dir / f"img_{i:05d}.png",
+                    imgs[i].detach().cpu().numpy(),
+                )
+        else:
+            metrics_dict = output
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         # Get the output and define the names to save to
         benchmark_info = {
@@ -39,7 +57,9 @@ class ComputePSNR:
             "results": metrics_dict,
         }
         # Save output to output file
-        self.output_path.write_text(json.dumps(benchmark_info, indent=2), "utf8")
+        self.output_path.write_text(
+            json.dumps(benchmark_info, indent=2), "utf8"
+        )
         CONSOLE.print(f"Saved results to: {self.output_path}")
 
 

@@ -20,9 +20,14 @@ from typing import Dict
 
 import torch
 
-from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs, Semantics
+from nerfstudio.data.dataparsers.base_dataparser import (
+    DataparserOutputs,
+    Semantics,
+)
 from nerfstudio.data.datasets.base_dataset import InputDataset
-from nerfstudio.data.utils.data_utils import get_semantics_and_mask_tensors_from_path
+from nerfstudio.data.utils.data_utils import (
+    get_semantics_and_mask_tensors_from_path,
+)
 
 
 class SemanticDataset(InputDataset):

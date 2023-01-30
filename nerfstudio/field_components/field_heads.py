@@ -74,7 +74,9 @@ class FieldHead(FieldComponent):
     def _construct_net(self):
         self.net = nn.Linear(self.in_dim, self.out_dim)
 
-    def forward(self, in_tensor: TensorType["bs":..., "in_dim"]) -> TensorType["bs":..., "out_dim"]:
+    def forward(
+        self, in_tensor: TensorType["bs":..., "in_dim"]
+    ) -> TensorType["bs":..., "out_dim"]:
         """Process network output for renderer
 
         Args:
@@ -84,7 +86,9 @@ class FieldHead(FieldComponent):
             Render head output
         """
         if not self.net:
-            raise SystemError("in_dim not set. Must be provided to construtor, or set_in_dim() should be called.")
+            raise SystemError(
+                "in_dim not set. Must be provided to construtor, or set_in_dim() should be called."
+            )
         out_tensor = self.net(in_tensor)
         if self.activation:
             out_tensor = self.activation(out_tensor)
@@ -99,8 +103,17 @@ class DensityFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Softplus()) -> None:
-        super().__init__(in_dim=in_dim, out_dim=1, field_head_name=FieldHeadNames.DENSITY, activation=activation)
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Softplus(),
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=1,
+            field_head_name=FieldHeadNames.DENSITY,
+            activation=activation,
+        )
 
 
 class RGBFieldHead(FieldHead):
@@ -111,8 +124,17 @@ class RGBFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Sigmoid()) -> None:
-        super().__init__(in_dim=in_dim, out_dim=3, field_head_name=FieldHeadNames.RGB, activation=activation)
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Sigmoid(),
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=3,
+            field_head_name=FieldHeadNames.RGB,
+            activation=activation,
+        )
 
 
 class SHFieldHead(FieldHead):
@@ -126,11 +148,20 @@ class SHFieldHead(FieldHead):
     """
 
     def __init__(
-        self, in_dim: Optional[int] = None, levels: int = 3, channels: int = 3, activation: Optional[nn.Module] = None
+        self,
+        in_dim: Optional[int] = None,
+        levels: int = 3,
+        channels: int = 3,
+        activation: Optional[nn.Module] = None,
     ) -> None:
 
         out_dim = channels * levels**2
-        super().__init__(in_dim=in_dim, out_dim=out_dim, field_head_name=FieldHeadNames.SH, activation=activation)
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=out_dim,
+            field_head_name=FieldHeadNames.SH,
+            activation=activation,
+        )
 
 
 class UncertaintyFieldHead(FieldHead):
@@ -141,8 +172,17 @@ class UncertaintyFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Softplus()) -> None:
-        super().__init__(in_dim=in_dim, out_dim=1, field_head_name=FieldHeadNames.UNCERTAINTY, activation=activation)
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Softplus(),
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=1,
+            field_head_name=FieldHeadNames.UNCERTAINTY,
+            activation=activation,
+        )
 
 
 class TransientRGBFieldHead(FieldHead):
@@ -153,8 +193,17 @@ class TransientRGBFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Sigmoid()) -> None:
-        super().__init__(in_dim=in_dim, out_dim=3, field_head_name=FieldHeadNames.TRANSIENT_RGB, activation=activation)
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Sigmoid(),
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=3,
+            field_head_name=FieldHeadNames.TRANSIENT_RGB,
+            activation=activation,
+        )
 
 
 class TransientDensityFieldHead(FieldHead):
@@ -165,9 +214,16 @@ class TransientDensityFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Softplus()) -> None:
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Softplus(),
+    ) -> None:
         super().__init__(
-            in_dim=in_dim, out_dim=1, field_head_name=FieldHeadNames.TRANSIENT_DENSITY, activation=activation
+            in_dim=in_dim,
+            out_dim=1,
+            field_head_name=FieldHeadNames.TRANSIENT_DENSITY,
+            activation=activation,
         )
 
 
@@ -181,7 +237,12 @@ class SemanticFieldHead(FieldHead):
     """
 
     def __init__(self, num_classes: int, in_dim: Optional[int] = None) -> None:
-        super().__init__(in_dim=in_dim, out_dim=num_classes, field_head_name=FieldHeadNames.SEMANTICS, activation=None)
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=num_classes,
+            field_head_name=FieldHeadNames.SEMANTICS,
+            activation=None,
+        )
 
 
 class PredNormalsFieldHead(FieldHead):
@@ -192,10 +253,21 @@ class PredNormalsFieldHead(FieldHead):
         activation: output head activation
     """
 
-    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Tanh()) -> None:
-        super().__init__(in_dim=in_dim, out_dim=3, field_head_name=FieldHeadNames.PRED_NORMALS, activation=activation)
+    def __init__(
+        self,
+        in_dim: Optional[int] = None,
+        activation: Optional[nn.Module] = nn.Tanh(),
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=3,
+            field_head_name=FieldHeadNames.PRED_NORMALS,
+            activation=activation,
+        )
 
-    def forward(self, in_tensor: TensorType["bs":..., "in_dim"]) -> TensorType["bs":..., "out_dim"]:
+    def forward(
+        self, in_tensor: TensorType["bs":..., "in_dim"]
+    ) -> TensorType["bs":..., "out_dim"]:
         """Needed to normalize the output into valid normals."""
         out_tensor = super().forward(in_tensor)
         out_tensor = torch.nn.functional.normalize(out_tensor, dim=-1)

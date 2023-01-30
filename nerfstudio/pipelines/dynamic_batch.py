@@ -23,7 +23,10 @@ import torch
 from typing_extensions import Literal
 
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
-from nerfstudio.pipelines.base_pipeline import VanillaPipeline, VanillaPipelineConfig
+from nerfstudio.pipelines.base_pipeline import (
+    VanillaPipeline,
+    VanillaPipelineConfig,
+)
 
 
 @dataclass
@@ -59,23 +62,33 @@ class DynamicBatchPipeline(VanillaPipeline):
             self.datamanager, VanillaDataManager
         ), "DynamicBatchPipeline only works with VanillaDataManager."
 
-        self.dynamic_num_rays_per_batch = self.config.target_num_samples // self.config.max_num_samples_per_ray
+        self.dynamic_num_rays_per_batch = (
+            self.config.target_num_samples
+            // self.config.max_num_samples_per_ray
+        )
         self._update_pixel_samplers()
 
     def _update_pixel_samplers(self):
         """Update the pixel samplers for train and eval with the dynamic number of rays per batch."""
-        self.datamanager.train_pixel_sampler.set_num_rays_per_batch(self.dynamic_num_rays_per_batch)
-        self.datamanager.eval_pixel_sampler.set_num_rays_per_batch(self.dynamic_num_rays_per_batch)
+        self.datamanager.train_pixel_sampler.set_num_rays_per_batch(
+            self.dynamic_num_rays_per_batch
+        )
+        self.datamanager.eval_pixel_sampler.set_num_rays_per_batch(
+            self.dynamic_num_rays_per_batch
+        )
 
     def _update_dynamic_num_rays_per_batch(self, num_samples_per_batch: int):
         """Updates the dynamic number of rays per batch variable,
         based on the total number of samples in the last batch of rays."""
         self.dynamic_num_rays_per_batch = int(
-            self.dynamic_num_rays_per_batch * (self.config.target_num_samples / num_samples_per_batch)
+            self.dynamic_num_rays_per_batch
+            * (self.config.target_num_samples / num_samples_per_batch)
         )
 
     def get_train_loss_dict(self, step: int):
-        model_outputs, loss_dict, metrics_dict = super().get_train_loss_dict(step)
+        model_outputs, loss_dict, metrics_dict = super().get_train_loss_dict(
+            step
+        )
 
         # update the number of rays for the next step
         if "num_samples_per_batch" not in metrics_dict:
@@ -83,20 +96,28 @@ class DynamicBatchPipeline(VanillaPipeline):
                 "'num_samples_per_batch' is not in metrics_dict."
                 "Please return 'num_samples_per_batch' in the models get_metrics_dict function to use this method."
             )
-        self._update_dynamic_num_rays_per_batch(metrics_dict["num_samples_per_batch"])
+        self._update_dynamic_num_rays_per_batch(
+            metrics_dict["num_samples_per_batch"]
+        )
         self._update_pixel_samplers()
 
         # add the number of rays
         assert "num_rays_per_batch" not in metrics_dict
-        metrics_dict["num_rays_per_batch"] = torch.tensor(self.datamanager.train_pixel_sampler.num_rays_per_batch)
+        metrics_dict["num_rays_per_batch"] = torch.tensor(
+            self.datamanager.train_pixel_sampler.num_rays_per_batch
+        )
 
         return model_outputs, loss_dict, metrics_dict
 
     def get_eval_loss_dict(self, step: int):
-        model_outputs, loss_dict, metrics_dict = super().get_eval_loss_dict(step)
+        model_outputs, loss_dict, metrics_dict = super().get_eval_loss_dict(
+            step
+        )
 
         # add the number of rays
         assert "num_rays_per_batch" not in metrics_dict
-        metrics_dict["num_rays_per_batch"] = torch.tensor(self.datamanager.eval_pixel_sampler.num_rays_per_batch)
+        metrics_dict["num_rays_per_batch"] = torch.tensor(
+            self.datamanager.eval_pixel_sampler.num_rays_per_batch
+        )
 
         return model_outputs, loss_dict, metrics_dict

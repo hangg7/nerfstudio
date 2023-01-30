@@ -105,7 +105,9 @@ class NGPModel(Model):
             num_images=self.num_train_data,
         )
 
-        self.scene_aabb = Parameter(self.scene_box.aabb.flatten(), requires_grad=False)
+        self.scene_aabb = Parameter(
+            self.scene_box.aabb.flatten(), requires_grad=False
+        )
 
         # Occupancy Grid
         self.occupancy_grid = nerfacc.OccupancyGrid(
@@ -115,7 +117,11 @@ class NGPModel(Model):
         )
 
         # Sampler
-        vol_sampler_aabb = self.scene_box.aabb if self.config.contraction_type == ContractionType.AABB else None
+        vol_sampler_aabb = (
+            self.scene_box.aabb
+            if self.config.contraction_type == ContractionType.AABB
+            else None
+        )
         self.sampler = VolumetricSampler(
             scene_aabb=vol_sampler_aabb,
             occupancy_grid=self.occupancy_grid,
@@ -137,7 +143,9 @@ class NGPModel(Model):
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
         self.ssim = structural_similarity_index_measure
-        self.lpips = LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)
+        self.lpips = LearnedPerceptualImagePatchSimilarity(
+            net_type="vgg", normalize=True
+        )
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
@@ -147,7 +155,9 @@ class NGPModel(Model):
             # https://github.com/KAIR-BAIR/nerfacc/blob/127223b11401125a9fce5ce269bb0546ee4de6e8/examples/train_ngp_nerf.py#L190-L213
             self.occupancy_grid.every_n_step(
                 step=step,
-                occ_eval_fn=lambda x: self.field.get_opacity(x, self.config.render_step_size),
+                occ_eval_fn=lambda x: self.field.get_opacity(
+                    x, self.config.render_step_size
+                ),
             )
 
         return [
@@ -161,7 +171,9 @@ class NGPModel(Model):
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
         if self.field is None:
-            raise ValueError("populate_fields() must be called before get_param_groups")
+            raise ValueError(
+                "populate_fields() must be called before get_param_groups"
+            )
         param_groups["fields"] = list(self.field.parameters())
         return param_groups
 
@@ -195,9 +207,14 @@ class NGPModel(Model):
             num_rays=num_rays,
         )
         depth = self.renderer_depth(
-            weights=weights, ray_samples=ray_samples, ray_indices=ray_indices, num_rays=num_rays
+            weights=weights,
+            ray_samples=ray_samples,
+            ray_indices=ray_indices,
+            num_rays=num_rays,
         )
-        accumulation = self.renderer_accumulation(weights=weights, ray_indices=ray_indices, num_rays=num_rays)
+        accumulation = self.renderer_accumulation(
+            weights=weights, ray_indices=ray_indices, num_rays=num_rays
+        )
         alive_ray_mask = accumulation.squeeze(-1) > 0
 
         outputs = {
@@ -213,7 +230,9 @@ class NGPModel(Model):
         image = batch["image"].to(self.device)
         metrics_dict = {}
         metrics_dict["psnr"] = self.psnr(outputs["rgb"], image)
-        metrics_dict["num_samples_per_batch"] = outputs["num_samples_per_ray"].sum()
+        metrics_dict["num_samples_per_batch"] = outputs[
+            "num_samples_per_ray"
+        ].sum()
         return metrics_dict
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None):

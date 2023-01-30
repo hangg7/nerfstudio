@@ -95,7 +95,9 @@ class TrainingCallback:
             if step in self.iters:
                 self.func(*self.args, **self.kwargs, step=step)
 
-    def run_callback_at_location(self, step: int, location: TrainingCallbackLocation):
+    def run_callback_at_location(
+        self, step: int, location: TrainingCallbackLocation
+    ):
         """Runs the callback if it's supposed to be run at the given location.
 
         Args:

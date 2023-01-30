@@ -31,7 +31,9 @@ from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.configs.config_utils import to_immutable_dict
 from nerfstudio.field_components.encodings import NeRFEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
-from nerfstudio.field_components.temporal_distortions import TemporalDistortionKind
+from nerfstudio.field_components.temporal_distortions import (
+    TemporalDistortionKind,
+)
 from nerfstudio.fields.vanilla_nerf_field import NeRFField
 from nerfstudio.model_components.losses import MSELoss
 from nerfstudio.model_components.ray_samplers import PDFSampler, UniformSampler
@@ -56,7 +58,9 @@ class VanillaModelConfig(ModelConfig):
 
     enable_temporal_distortion: bool = False
     """Specifies whether or not to include ray warping based on time."""
-    temporal_distortion_params: Dict[str, Any] = to_immutable_dict({"kind": TemporalDistortionKind.DNERF})
+    temporal_distortion_params: Dict[str, Any] = to_immutable_dict(
+        {"kind": TemporalDistortionKind.DNERF}
+    )
     """Parameters to instantiate temporal distortion with"""
 
 
@@ -87,10 +91,18 @@ class NeRFModel(Model):
 
         # fields
         position_encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=10, min_freq_exp=0.0, max_freq_exp=8.0, include_input=True
+            in_dim=3,
+            num_frequencies=10,
+            min_freq_exp=0.0,
+            max_freq_exp=8.0,
+            include_input=True,
         )
         direction_encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=4, min_freq_exp=0.0, max_freq_exp=4.0, include_input=True
+            in_dim=3,
+            num_frequencies=4,
+            min_freq_exp=0.0,
+            max_freq_exp=4.0,
+            include_input=True,
         )
 
         self.field_coarse = NeRFField(
@@ -104,8 +116,12 @@ class NeRFModel(Model):
         )
 
         # samplers
-        self.sampler_uniform = UniformSampler(num_samples=self.config.num_coarse_samples)
-        self.sampler_pdf = PDFSampler(num_samples=self.config.num_importance_samples)
+        self.sampler_uniform = UniformSampler(
+            num_samples=self.config.num_coarse_samples
+        )
+        self.sampler_pdf = PDFSampler(
+            num_samples=self.config.num_importance_samples
+        )
 
         # renderers
         self.renderer_rgb = RGBRenderer(background_color=colors.WHITE)
@@ -128,26 +144,39 @@ class NeRFModel(Model):
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
         if self.field_coarse is None or self.field_fine is None:
-            raise ValueError("populate_fields() must be called before get_param_groups")
-        param_groups["fields"] = list(self.field_coarse.parameters()) + list(self.field_fine.parameters())
+            raise ValueError(
+                "populate_fields() must be called before get_param_groups"
+            )
+        param_groups["fields"] = list(self.field_coarse.parameters()) + list(
+            self.field_fine.parameters()
+        )
         if self.temporal_distortion is not None:
-            param_groups["temporal_distortion"] = list(self.temporal_distortion.parameters())
+            param_groups["temporal_distortion"] = list(
+                self.temporal_distortion.parameters()
+            )
         return param_groups
 
     def get_outputs(self, ray_bundle: RayBundle):
 
         if self.field_coarse is None or self.field_fine is None:
-            raise ValueError("populate_fields() must be called before get_outputs")
+            raise ValueError(
+                "populate_fields() must be called before get_outputs"
+            )
 
         # uniform sampling
         ray_samples_uniform = self.sampler_uniform(ray_bundle)
         if self.temporal_distortion is not None:
-            offsets = self.temporal_distortion(ray_samples_uniform.frustums.get_positions(), ray_samples_uniform.times)
+            offsets = self.temporal_distortion(
+                ray_samples_uniform.frustums.get_positions(),
+                ray_samples_uniform.times,
+            )
             ray_samples_uniform.frustums.set_offsets(offsets)
 
         # coarse field:
         field_outputs_coarse = self.field_coarse.forward(ray_samples_uniform)
-        weights_coarse = ray_samples_uniform.get_weights(field_outputs_coarse[FieldHeadNames.DENSITY])
+        weights_coarse = ray_samples_uniform.get_weights(
+            field_outputs_coarse[FieldHeadNames.DENSITY]
+        )
         rgb_coarse = self.renderer_rgb(
             rgb=field_outputs_coarse[FieldHeadNames.RGB],
             weights=weights_coarse,
@@ -156,14 +185,20 @@ class NeRFModel(Model):
         depth_coarse = self.renderer_depth(weights_coarse, ray_samples_uniform)
 
         # pdf sampling
-        ray_samples_pdf = self.sampler_pdf(ray_bundle, ray_samples_uniform, weights_coarse)
+        ray_samples_pdf = self.sampler_pdf(
+            ray_bundle, ray_samples_uniform, weights_coarse
+        )
         if self.temporal_distortion is not None:
-            offsets = self.temporal_distortion(ray_samples_pdf.frustums.get_positions(), ray_samples_pdf.times)
+            offsets = self.temporal_distortion(
+                ray_samples_pdf.frustums.get_positions(), ray_samples_pdf.times
+            )
             ray_samples_pdf.frustums.set_offsets(offsets)
 
         # fine field:
         field_outputs_fine = self.field_fine.forward(ray_samples_pdf)
-        weights_fine = ray_samples_pdf.get_weights(field_outputs_fine[FieldHeadNames.DENSITY])
+        weights_fine = ray_samples_pdf.get_weights(
+            field_outputs_fine[FieldHeadNames.DENSITY]
+        )
         rgb_fine = self.renderer_rgb(
             rgb=field_outputs_fine[FieldHeadNames.RGB],
             weights=weights_fine,
@@ -181,7 +216,9 @@ class NeRFModel(Model):
         }
         return outputs
 
-    def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict[str, torch.Tensor]:
+    def get_loss_dict(
+        self, outputs, batch, metrics_dict=None
+    ) -> Dict[str, torch.Tensor]:
         # Scaling metrics by coefficients to create the losses.
         device = outputs["rgb_coarse"].device
         image = batch["image"].to(device)
@@ -189,7 +226,10 @@ class NeRFModel(Model):
         rgb_loss_coarse = self.rgb_loss(image, outputs["rgb_coarse"])
         rgb_loss_fine = self.rgb_loss(image, outputs["rgb_fine"])
 
-        loss_dict = {"rgb_loss_coarse": rgb_loss_coarse, "rgb_loss_fine": rgb_loss_fine}
+        loss_dict = {
+            "rgb_loss_coarse": rgb_loss_coarse,
+            "rgb_loss_fine": rgb_loss_fine,
+        }
         loss_dict = misc.scale_dict(loss_dict, self.config.loss_coefficients)
         return loss_dict
 
@@ -235,5 +275,9 @@ class NeRFModel(Model):
             "fine_ssim": float(fine_ssim),
             "fine_lpips": float(fine_lpips),
         }
-        images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
+        images_dict = {
+            "img": combined_rgb,
+            "accumulation": combined_acc,
+            "depth": combined_depth,
+        }
         return metrics_dict, images_dict

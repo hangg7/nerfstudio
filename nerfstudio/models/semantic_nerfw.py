@@ -39,7 +39,11 @@ from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SceneContraction
 from nerfstudio.fields.density_fields import HashMLPDensityField
 from nerfstudio.fields.nerfacto_field import TCNNNerfactoField
-from nerfstudio.model_components.losses import MSELoss, distortion_loss, interlevel_loss
+from nerfstudio.model_components.losses import (
+    MSELoss,
+    distortion_loss,
+    interlevel_loss,
+)
 from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler
 from nerfstudio.model_components.renderers import (
     AccumulationRenderer,
@@ -72,8 +76,12 @@ class SemanticNerfWModel(Model):
 
     config: SemanticNerfWModelConfig
 
-    def __init__(self, config: SemanticNerfWModelConfig, metadata: Dict, **kwargs) -> None:
-        assert "semantics" in metadata.keys() and isinstance(metadata["semantics"], Semantics)
+    def __init__(
+        self, config: SemanticNerfWModelConfig, metadata: Dict, **kwargs
+    ) -> None:
+        assert "semantics" in metadata.keys() and isinstance(
+            metadata["semantics"], Semantics
+        )
         self.semantics = metadata["semantics"]
         super().__init__(config=config, **kwargs)
 
@@ -84,7 +92,9 @@ class SemanticNerfWModel(Model):
         scene_contraction = SceneContraction(order=float("inf"))
 
         if self.config.use_transient_embedding:
-            raise ValueError("Transient embedding is not fully working for semantic nerf-w.")
+            raise ValueError(
+                "Transient embedding is not fully working for semantic nerf-w."
+            )
 
         # Fields
         self.field = TCNNNerfactoField(
@@ -103,17 +113,28 @@ class SemanticNerfWModel(Model):
         # Build the proposal network(s)
         self.proposal_networks = torch.nn.ModuleList()
         if self.config.use_same_proposal_network:
-            network = HashMLPDensityField(self.scene_box.aabb, spatial_distortion=scene_contraction)
+            network = HashMLPDensityField(
+                self.scene_box.aabb, spatial_distortion=scene_contraction
+            )
             self.proposal_networks.append(network)
-            self.density_fns = [network.density_fn for _ in range(self.config.num_proposal_iterations)]
+            self.density_fns = [
+                network.density_fn
+                for _ in range(self.config.num_proposal_iterations)
+            ]
         else:
             for _ in range(self.config.num_proposal_iterations):
-                network = HashMLPDensityField(self.scene_box.aabb, spatial_distortion=scene_contraction)
+                network = HashMLPDensityField(
+                    self.scene_box.aabb, spatial_distortion=scene_contraction
+                )
                 self.proposal_networks.append(network)
-            self.density_fns = [network.density_fn for network in self.proposal_networks]
+            self.density_fns = [
+                network.density_fn for network in self.proposal_networks
+            ]
 
         # Collider
-        self.collider = NearFarCollider(near_plane=self.config.near_plane, far_plane=self.config.far_plane)
+        self.collider = NearFarCollider(
+            near_plane=self.config.near_plane, far_plane=self.config.far_plane
+        )
 
         # Samplers
         self.proposal_sampler = ProposalNetworkSampler(
@@ -124,7 +145,9 @@ class SemanticNerfWModel(Model):
         )
 
         # renderers
-        self.renderer_rgb = RGBRenderer(background_color=self.config.background_color)
+        self.renderer_rgb = RGBRenderer(
+            background_color=self.config.background_color
+        )
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer()
         self.renderer_uncertainty = UncertaintyRenderer()
@@ -141,7 +164,9 @@ class SemanticNerfWModel(Model):
 
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
-        param_groups["proposal_networks"] = list(self.proposal_networks.parameters())
+        param_groups["proposal_networks"] = list(
+            self.proposal_networks.parameters()
+        )
         param_groups["fields"] = list(self.field.parameters())
         return param_groups
 
@@ -157,12 +182,16 @@ class SemanticNerfWModel(Model):
                 # https://arxiv.org/pdf/2111.12077.pdf eq. 18
                 train_frac = np.clip(step / N, 0, 1)
                 bias = lambda x, b: (b * x) / ((b - 1) * x + 1)
-                anneal = bias(train_frac, self.config.proposal_weights_anneal_slope)
+                anneal = bias(
+                    train_frac, self.config.proposal_weights_anneal_slope
+                )
                 self.proposal_sampler.set_anneal(anneal)
 
             callbacks.append(
                 TrainingCallback(
-                    where_to_run=[TrainingCallbackLocation.BEFORE_TRAIN_ITERATION],
+                    where_to_run=[
+                        TrainingCallbackLocation.BEFORE_TRAIN_ITERATION
+                    ],
                     update_every_num_iters=1,
                     func=set_anneal,
                 )
@@ -170,26 +199,42 @@ class SemanticNerfWModel(Model):
         return callbacks
 
     def get_outputs(self, ray_bundle: RayBundle):
-        ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
+        ray_samples, weights_list, ray_samples_list = self.proposal_sampler(
+            ray_bundle, density_fns=self.density_fns
+        )
         field_outputs = self.field(ray_samples)
 
         if self.training and self.config.use_transient_embedding:
-            density = field_outputs[FieldHeadNames.DENSITY] + field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+            density = (
+                field_outputs[FieldHeadNames.DENSITY]
+                + field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+            )
             weights = ray_samples.get_weights(density)
-            weights_static = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
-            rgb_static_component = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+            weights_static = ray_samples.get_weights(
+                field_outputs[FieldHeadNames.DENSITY]
+            )
+            rgb_static_component = self.renderer_rgb(
+                rgb=field_outputs[FieldHeadNames.RGB], weights=weights
+            )
             rgb_transient_component = self.renderer_rgb(
-                rgb=field_outputs[FieldHeadNames.TRANSIENT_RGB], weights=weights
+                rgb=field_outputs[FieldHeadNames.TRANSIENT_RGB],
+                weights=weights,
             )
             rgb = rgb_static_component + rgb_transient_component
         else:
-            weights_static = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+            weights_static = ray_samples.get_weights(
+                field_outputs[FieldHeadNames.DENSITY]
+            )
             weights = weights_static
-            rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+            rgb = self.renderer_rgb(
+                rgb=field_outputs[FieldHeadNames.RGB], weights=weights
+            )
         weights_list.append(weights_static)
         ray_samples_list.append(ray_samples)
 
-        depth = self.renderer_depth(weights=weights_static, ray_samples=ray_samples)
+        depth = self.renderer_depth(
+            weights=weights_static, ray_samples=ray_samples
+        )
         accumulation = self.renderer_accumulation(weights=weights_static)
 
         outputs = {"rgb": rgb, "accumulation": accumulation, "depth": depth}
@@ -197,22 +242,35 @@ class SemanticNerfWModel(Model):
         outputs["ray_samples_list"] = ray_samples_list
 
         for i in range(self.config.num_proposal_iterations):
-            outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
+            outputs[f"prop_depth_{i}"] = self.renderer_depth(
+                weights=weights_list[i], ray_samples=ray_samples_list[i]
+            )
 
         # transients
         if self.training and self.config.use_transient_embedding:
-            weights_transient = ray_samples.get_weights(field_outputs[FieldHeadNames.TRANSIENT_DENSITY])
-            uncertainty = self.renderer_uncertainty(field_outputs[FieldHeadNames.UNCERTAINTY], weights_transient)
-            outputs["uncertainty"] = uncertainty + 0.03  # NOTE(ethan): this is the uncertainty min
-            outputs["density_transient"] = field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+            weights_transient = ray_samples.get_weights(
+                field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+            )
+            uncertainty = self.renderer_uncertainty(
+                field_outputs[FieldHeadNames.UNCERTAINTY], weights_transient
+            )
+            outputs["uncertainty"] = (
+                uncertainty + 0.03
+            )  # NOTE(ethan): this is the uncertainty min
+            outputs["density_transient"] = field_outputs[
+                FieldHeadNames.TRANSIENT_DENSITY
+            ]
 
         # semantics
         outputs["semantics"] = self.renderer_semantics(
-            field_outputs[FieldHeadNames.SEMANTICS], weights=weights_static.detach()
+            field_outputs[FieldHeadNames.SEMANTICS],
+            weights=weights_static.detach(),
         )
 
         # semantics colormaps
-        semantic_labels = torch.argmax(torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1)
+        semantic_labels = torch.argmax(
+            torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1
+        )
         outputs["semantics_colormap"] = self.semantics.colors[semantic_labels]
 
         return outputs
@@ -221,29 +279,41 @@ class SemanticNerfWModel(Model):
         metrics_dict = {}
         image = batch["image"].to(self.device)
         metrics_dict["psnr"] = self.psnr(outputs["rgb"], image)
-        metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
+        metrics_dict["distortion"] = distortion_loss(
+            outputs["weights_list"], outputs["ray_samples_list"]
+        )
         return metrics_dict
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = {}
         image = batch["image"].to(self.device)
-        loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
+        loss_dict[
+            "interlevel_loss"
+        ] = self.config.interlevel_loss_mult * interlevel_loss(
             outputs["weights_list"], outputs["ray_samples_list"]
         )
         assert metrics_dict is not None and "distortion" in metrics_dict
-        loss_dict["distortion_loss"] = self.config.distortion_loss_mult * metrics_dict["distortion"]
+        loss_dict["distortion_loss"] = (
+            self.config.distortion_loss_mult * metrics_dict["distortion"]
+        )
 
         # transient loss
         if self.training and self.config.use_transient_embedding:
             betas = outputs["uncertainty"]
             loss_dict["uncertainty_loss"] = 3 + torch.log(betas).mean()
-            loss_dict["density_loss"] = 0.01 * outputs["density_transient"].mean()
-            loss_dict["rgb_loss"] = (((image - outputs["rgb"]) ** 2).sum(-1) / (betas[..., 0] ** 2)).mean()
+            loss_dict["density_loss"] = (
+                0.01 * outputs["density_transient"].mean()
+            )
+            loss_dict["rgb_loss"] = (
+                ((image - outputs["rgb"]) ** 2).sum(-1) / (betas[..., 0] ** 2)
+            ).mean()
         else:
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
 
         # semantic loss
-        loss_dict["semantics_loss"] = self.cross_entropy_loss(outputs["semantics"], batch["semantics"][..., 0].long())
+        loss_dict["semantics_loss"] = self.cross_entropy_loss(
+            outputs["semantics"], batch["semantics"][..., 0].long()
+        )
         return loss_dict
 
     def get_image_metrics_and_images(
@@ -275,7 +345,11 @@ class SemanticNerfWModel(Model):
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
         metrics_dict["lpips"] = float(lpips)
 
-        images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
+        images_dict = {
+            "img": combined_rgb,
+            "accumulation": combined_acc,
+            "depth": combined_depth,
+        }
 
         for i in range(self.config.num_proposal_iterations):
             key = f"prop_depth_{i}"
@@ -286,8 +360,12 @@ class SemanticNerfWModel(Model):
             images_dict[key] = prop_depth_i
 
         # semantics
-        semantic_labels = torch.argmax(torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1)
-        images_dict["semantics_colormap"] = self.semantics.colors[semantic_labels]
+        semantic_labels = torch.argmax(
+            torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1
+        )
+        images_dict["semantics_colormap"] = self.semantics.colors[
+            semantic_labels
+        ]
 
         # valid mask
         images_dict["mask"] = batch["mask"].repeat(1, 1, 3)

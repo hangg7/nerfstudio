@@ -47,7 +47,9 @@ class PrintableConfig:  # pylint: disable=too-few-public-methods
 
 # Base instantiate configs
 @dataclass
-class InstantiateConfig(PrintableConfig):  # pylint: disable=too-few-public-methods
+class InstantiateConfig(
+    PrintableConfig
+):  # pylint: disable=too-few-public-methods
     """Config class for instantiating an the class specified in the _target attribute."""
 
     _target: Type
@@ -93,7 +95,9 @@ class LocalWriterConfig(InstantiateConfig):
     max_log_size: int = 10
     """maximum number of rows to print before wrapping. if 0, will print everything."""
 
-    def setup(self, banner_messages: Optional[List[str]] = None, **kwargs) -> Any:
+    def setup(
+        self, banner_messages: Optional[List[str]] = None, **kwargs
+    ) -> Any:
         """Instantiate local writer
 
         Args:

@@ -70,7 +70,8 @@ class SemanticNerfField(Field):
             out_activation=nn.ReLU(),
         )
         self.mlp_head = MLP(
-            in_dim=self.mlp_base.get_out_dim() + self.direction_encoding.get_out_dim(),
+            in_dim=self.mlp_base.get_out_dim()
+            + self.direction_encoding.get_out_dim(),
             num_layers=head_mlp_num_layers,
             layer_width=head_mlp_layer_width,
             out_activation=nn.ReLU(),
@@ -82,27 +83,38 @@ class SemanticNerfField(Field):
             activation=nn.ReLU(),
             out_activation=nn.ReLU(),
         )
-        self.field_head_density = DensityFieldHead(in_dim=self.mlp_base.get_out_dim())
+        self.field_head_density = DensityFieldHead(
+            in_dim=self.mlp_base.get_out_dim()
+        )
         self.field_head_rgb = RGBFieldHead(in_dim=self.mlp_head.get_out_dim())
         self.field_head_semantic = SemanticFieldHead(
-            in_dim=self.mlp_semantic.get_out_dim(), num_classes=self.num_semantic_classes
+            in_dim=self.mlp_semantic.get_out_dim(),
+            num_classes=self.num_semantic_classes,
         )
 
     def get_density(self, ray_samples: RaySamples):
-        encoded_xyz = self.position_encoding(ray_samples.frustums.get_positions())
+        encoded_xyz = self.position_encoding(
+            ray_samples.frustums.get_positions()
+        )
         base_mlp_out = self.mlp_base(encoded_xyz)
         density = self.field_head_density(base_mlp_out)
         return density, base_mlp_out
 
     def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
     ) -> Dict[FieldHeadNames, TensorType]:
         encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
         mlp_out = self.mlp_head(torch.cat([encoded_dir, density_embedding], dim=-1))  # type: ignore
         outputs = {}
         # rgb
-        outputs[self.field_head_rgb.field_head_name] = self.field_head_rgb(mlp_out)
+        outputs[self.field_head_rgb.field_head_name] = self.field_head_rgb(
+            mlp_out
+        )
         # semantic
         mlp_out_sem = self.mlp_semantic(mlp_out)
-        outputs[self.field_head_semantic.field_head_name] = self.field_head_semantic(mlp_out_sem)
+        outputs[
+            self.field_head_semantic.field_head_name
+        ] = self.field_head_semantic(mlp_out_sem)
         return outputs

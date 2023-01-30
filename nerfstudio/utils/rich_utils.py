@@ -61,8 +61,14 @@ def status(msg: str, spinner: str = "bouncingBall", verbose: bool = False):
 
 def get_progress(description: str, suffix: Optional[str] = None):
     """Helper function to return a rich Progress object."""
-    progress_list = [TextColumn(description), BarColumn(), TaskProgressColumn(show_speed=True)]
+    progress_list = [
+        TextColumn(description),
+        BarColumn(),
+        TaskProgressColumn(show_speed=True),
+    ]
     progress_list += [ItersPerSecColumn(suffix=suffix)] if suffix else []
-    progress_list += [TimeRemainingColumn(elapsed_when_finished=True, compact=True)]
+    progress_list += [
+        TimeRemainingColumn(elapsed_when_finished=True, compact=True)
+    ]
     progress = Progress(*progress_list)
     return progress

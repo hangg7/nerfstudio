@@ -34,7 +34,9 @@ def test_multiply():
     )
     translation_pose = poses.multiply(pose, pose)
     assert translation_pose.shape == pose.shape
-    assert torch.equal(translation_pose[..., :, 3], torch.tensor([[2.0, 4.0, 6.0]]))
+    assert torch.equal(
+        translation_pose[..., :, 3], torch.tensor([[2.0, 4.0, 6.0]])
+    )
 
     pose_a = pose.clone()
     pose_a[:, :3, :3] = torch.tensor(
@@ -54,7 +56,10 @@ def test_multiply():
     )
 
     translation_rotation_pose = poses.multiply(pose_a, pose_b)
-    assert torch.allclose(translation_rotation_pose, (poses.to4x4(pose_a) @ poses.to4x4(pose_b))[:, :3, :4])
+    assert torch.allclose(
+        translation_rotation_pose,
+        (poses.to4x4(pose_a) @ poses.to4x4(pose_b))[:, :3, :4],
+    )
 
 
 def test_inverse():

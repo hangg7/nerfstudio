@@ -86,7 +86,9 @@ class TCNNInstantNGPField(Field):
         if use_appearance_embedding:
             assert num_images is not None
             self.appearance_embedding_dim = appearance_embedding_dim
-            self.appearance_embedding = Embedding(num_images, appearance_embedding_dim)
+            self.appearance_embedding = Embedding(
+                num_images, appearance_embedding_dim
+            )
 
         # TODO: set this properly based on the aabb
         per_level_scale = 1.4472692012786865
@@ -137,10 +139,14 @@ class TCNNInstantNGPField(Field):
     def get_density(self, ray_samples: RaySamples):
         positions = ray_samples.frustums.get_positions()
         positions_flat = positions.view(-1, 3)
-        positions_flat = contract(x=positions_flat, roi=self.aabb, type=self.contraction_type)
+        positions_flat = contract(
+            x=positions_flat, roi=self.aabb, type=self.contraction_type
+        )
 
         h = self.mlp_base(positions_flat).view(*ray_samples.frustums.shape, -1)
-        density_before_activation, base_mlp_out = torch.split(h, [1, self.geo_feat_dim], dim=-1)
+        density_before_activation, base_mlp_out = torch.split(
+            h, [1, self.geo_feat_dim], dim=-1
+        )
 
         # Rectifying the density with an exponential is much more stable than a ReLU or
         # softplus, because it enables high post-activation (float32) density outputs
@@ -148,16 +154,24 @@ class TCNNInstantNGPField(Field):
         density = trunc_exp(density_before_activation.to(positions))
         return density, base_mlp_out
 
-    def get_outputs(self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None):
+    def get_outputs(
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
+    ):
         directions = get_normalized_directions(ray_samples.frustums.directions)
         directions_flat = directions.view(-1, 3)
 
         d = self.direction_encoding(directions_flat)
         if density_embedding is None:
-            positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
+            positions = SceneBox.get_normalized_positions(
+                ray_samples.frustums.get_positions(), self.aabb
+            )
             h = torch.cat([d, positions.view(-1, 3)], dim=-1)
         else:
-            h = torch.cat([d, density_embedding.view(-1, self.geo_feat_dim)], dim=-1)
+            h = torch.cat(
+                [d, density_embedding.view(-1, self.geo_feat_dim)], dim=-1
+            )
 
         if self.use_appearance_embedding:
             if ray_samples.camera_indices is None:
@@ -167,14 +181,29 @@ class TCNNInstantNGPField(Field):
                 embedded_appearance = self.appearance_embedding(camera_indices)
             else:
                 embedded_appearance = torch.zeros(
-                    (*directions.shape[:-1], self.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.appearance_embedding_dim),
+                    device=directions.device,
                 )
-            h = torch.cat([h, embedded_appearance.view(-1, self.appearance_embedding_dim)], dim=-1)
+            h = torch.cat(
+                [
+                    h,
+                    embedded_appearance.view(
+                        -1, self.appearance_embedding_dim
+                    ),
+                ],
+                dim=-1,
+            )
 
-        rgb = self.mlp_head(h).view(*ray_samples.frustums.directions.shape[:-1], -1).to(directions)
+        rgb = (
+            self.mlp_head(h)
+            .view(*ray_samples.frustums.directions.shape[:-1], -1)
+            .to(directions)
+        )
         return {FieldHeadNames.RGB: rgb}
 
-    def get_opacity(self, positions: TensorType["bs":..., 3], step_size) -> TensorType["bs":..., 1]:
+    def get_opacity(
+        self, positions: TensorType["bs":..., 3], step_size
+    ) -> TensorType["bs":..., 1]:
         """Returns the opacity for a position. Used primarily by the occupancy grid.
 
         Args:

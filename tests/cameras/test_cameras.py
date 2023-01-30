@@ -39,7 +39,12 @@ CX_YS = [
     torch.ones(BATCH_SIZE, 1) * CX_Y,
     torch.ones((BATCH_SIZE, BATCH_SIZE, 1)) * CX_Y,
 ]
-DISTORTION_PARAMS = [None, torch.zeros(6), torch.zeros((BATCH_SIZE, 6)), torch.zeros((BATCH_SIZE, BATCH_SIZE, 6))]
+DISTORTION_PARAMS = [
+    None,
+    torch.zeros(6),
+    torch.zeros((BATCH_SIZE, 6)),
+    torch.zeros((BATCH_SIZE, BATCH_SIZE, 6)),
+]
 camera_types = [
     1,
     torch.tensor([1]),
@@ -110,10 +115,14 @@ C2_DIST = Cameras(
 def test_pinhole_camera():
     """Test that the pinhole camera model works."""
     c2w = torch.eye(4)[None, :3, :]
-    pinhole_camera = Cameras(cx=400.0, cy=400.0, fx=10.0, fy=10.0, camera_to_worlds=c2w)
+    pinhole_camera = Cameras(
+        cx=400.0, cy=400.0, fx=10.0, fy=10.0, camera_to_worlds=c2w
+    )
     camera_ray_bundle = pinhole_camera.generate_rays(camera_indices=0)
     assert isinstance(camera_ray_bundle, RayBundle)
-    assert torch.allclose(camera_ray_bundle.origins[0], torch.tensor([0.0, 0.0, 0.0]))
+    assert torch.allclose(
+        camera_ray_bundle.origins[0], torch.tensor([0.0, 0.0, 0.0])
+    )
 
     # Test generate rays on 1D input
     num_rays = 10
@@ -135,7 +144,9 @@ def test_equirectangular_camera():
     )
     camera_ray_bundle = equirectangular_camera.generate_rays(camera_indices=0)
     assert isinstance(camera_ray_bundle, RayBundle)
-    assert torch.allclose(camera_ray_bundle.origins[0], torch.tensor([0.0, 0.0, 0.0]))
+    assert torch.allclose(
+        camera_ray_bundle.origins[0], torch.tensor([0.0, 0.0, 0.0])
+    )
 
     # Check that the directions are mostly correct in local camera coordinates (+y is up, -z is forward)
     directions = camera_ray_bundle.directions
@@ -231,7 +242,11 @@ def check_generate_rays_shape():
             coord.broadcast_to(5, 2),
             torch.Size((5,)),
         ),  # [0]th camera and selected coords, output is [5] dimensional since extra batch dim is provided in inputs
-        (0, coord.broadcast_to(5, 2), torch.Size((5,))),  # First camera and selected coords, output is [5] dimensional
+        (
+            0,
+            coord.broadcast_to(5, 2),
+            torch.Size((5,)),
+        ),  # First camera and selected coords, output is [5] dimensional
         (
             torch.zeros(5, 1),
             None,
@@ -254,12 +269,16 @@ def check_generate_rays_shape():
         ),  # [0]th camera and all pixels since coords is none but we still have 2 extra batch dims of [11, 5] in coords
     ]
     for camera_indices, coords, output_size in combos:
-        shape = C0.generate_rays(camera_indices=camera_indices, coords=coords).shape
+        shape = C0.generate_rays(
+            camera_indices=camera_indices, coords=coords
+        ).shape
         assert shape == output_size
 
     assert C1.shape == (2,)
     for camera_indices, coords, output_size in combos:
-        shape = C1.generate_rays(camera_indices=camera_indices, coords=coords).shape
+        shape = C1.generate_rays(
+            camera_indices=camera_indices, coords=coords
+        ).shape
         assert shape == output_size
 
     # camera_indices can't be an int anymore since our cameras object have 2 batch dimensions
@@ -274,14 +293,18 @@ def check_generate_rays_shape():
         (torch.zeros(11, 5, 2), None, (800, 800, 11, 5)),
     ]
     for camera_indices, coords, output_size in combos:
-        shape = C2.generate_rays(camera_indices=camera_indices, coords=coords).shape
+        shape = C2.generate_rays(
+            camera_indices=camera_indices, coords=coords
+        ).shape
         assert shape == output_size
 
 
 def _check_dataclass_allclose(ipt, other):
     for field in dataclasses.fields(ipt):
         if getattr(ipt, field.name) is not None:
-            assert torch.allclose(getattr(ipt, field.name), getattr(other, field.name))
+            assert torch.allclose(
+                getattr(ipt, field.name), getattr(other, field.name)
+            )
     return True
 
 
@@ -296,7 +319,10 @@ def _check_cam_shapes(cam: Cameras, _batch_size):
     assert cam.cy.shape == (*_batch_size, 1)
     assert cam.height.shape == (*_batch_size, 1)
     assert cam.width.shape == (*_batch_size, 1)
-    assert cam.distortion_params is None or cam.distortion_params.shape == (*_batch_size, 6)
+    assert cam.distortion_params is None or cam.distortion_params.shape == (
+        *_batch_size,
+        6,
+    )
     assert cam.camera_type.shape == (*_batch_size, 1)
     return True
 

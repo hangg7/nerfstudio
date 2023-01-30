@@ -65,7 +65,9 @@ class Frustums(TensorDataclass):
             Conical frustums approximated by gaussian distribution.
         """
         # Cone radius is set such that the square pixel_area matches the cone area.
-        cone_radius = torch.sqrt(self.pixel_area) / 1.7724538509055159  # r = sqrt(pixel_area / pi)
+        cone_radius = (
+            torch.sqrt(self.pixel_area) / 1.7724538509055159
+        )  # r = sqrt(pixel_area / pi)
         if self.offsets is not None:
             raise NotImplementedError()
         return conical_frustum_to_gaussian(
@@ -114,7 +116,9 @@ class RaySamples(TensorDataclass):
     times: Optional[TensorType[..., 1]] = None
     """Times at which rays are sampled"""
 
-    def get_weights(self, densities: TensorType[..., "num_samples", 1]) -> TensorType[..., "num_samples", 1]:
+    def get_weights(
+        self, densities: TensorType[..., "num_samples", 1]
+    ) -> TensorType[..., "num_samples", 1]:
         """Return weights based on predicted densities
 
         Args:
@@ -129,7 +133,13 @@ class RaySamples(TensorDataclass):
 
         transmittance = torch.cumsum(delta_density[..., :-1, :], dim=-2)
         transmittance = torch.cat(
-            [torch.zeros((*transmittance.shape[:1], 1, 1), device=densities.device), transmittance], dim=-2
+            [
+                torch.zeros(
+                    (*transmittance.shape[:1], 1, 1), device=densities.device
+                ),
+                transmittance,
+            ],
+            dim=-2,
         )
         transmittance = torch.exp(-transmittance)  # [..., "num_samples"]
 
@@ -166,7 +176,9 @@ class RayBundle(TensorDataclass):
         Args:
             camera_index: Camera index.
         """
-        self.camera_indices = torch.ones_like(self.origins[..., 0:1]).long() * camera_index
+        self.camera_indices = (
+            torch.ones_like(self.origins[..., 0:1]).long() * camera_index
+        )
 
     def __len__(self):
         num_rays = torch.numel(self.origins) // self.origins.shape[-1]
@@ -185,7 +197,9 @@ class RayBundle(TensorDataclass):
         indices = random.sample(range(len(self)), k=num_rays)
         return self[indices]
 
-    def get_row_major_sliced_ray_bundle(self, start_idx: int, end_idx: int) -> "RayBundle":
+    def get_row_major_sliced_ray_bundle(
+        self, start_idx: int, end_idx: int
+    ) -> "RayBundle":
         """Flattens RayBundle and extracts chunk given start and end indicies.
 
         Args:
@@ -202,7 +216,9 @@ class RayBundle(TensorDataclass):
         self,
         bin_starts: TensorType["bs":..., "num_samples", 1],
         bin_ends: TensorType["bs":..., "num_samples", 1],
-        spacing_starts: Optional[TensorType["bs":..., "num_samples", 1]] = None,
+        spacing_starts: Optional[
+            TensorType["bs":..., "num_samples", 1]
+        ] = None,
         spacing_ends: Optional[TensorType["bs":..., "num_samples", 1]] = None,
         spacing_to_euclidean_fn: Optional[Callable] = None,
     ) -> RaySamples:
@@ -239,7 +255,9 @@ class RayBundle(TensorDataclass):
             spacing_ends=spacing_ends,  # [..., num_samples, 1]
             spacing_to_euclidean_fn=spacing_to_euclidean_fn,
             metadata=shaped_raybundle_fields.metadata,
-            times=None if self.times is None else self.times[..., None],  # [..., 1, 1]
+            times=None
+            if self.times is None
+            else self.times[..., None],  # [..., 1, 1]
         )
 
         return ray_samples

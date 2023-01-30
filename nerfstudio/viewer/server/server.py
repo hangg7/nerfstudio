@@ -32,7 +32,9 @@ from nerfstudio.viewer.server.state.node import find_node, get_tree, walk
 from nerfstudio.viewer.server.state.state_node import StateNode
 
 
-class WebSocketHandler(tornado.websocket.WebSocketHandler):  # pylint: disable=abstract-method
+class WebSocketHandler(
+    tornado.websocket.WebSocketHandler
+):  # pylint: disable=abstract-method
     """Tornado websocket handler for receiving and sending commands from/to the viewer."""
 
     def __init__(self, *args, **kwargs):
@@ -49,7 +51,9 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):  # pylint: disable=a
         print("opened:", self, file=sys.stderr)
         self.bridge.send_scene(self)
 
-    async def on_message(self, message: bytearray):  # pylint: disable=invalid-overridden-method
+    async def on_message(
+        self, message: bytearray
+    ):  # pylint: disable=invalid-overridden-method
         """On reception of message from the websocket,
         parses the message and calls the appropriate function based on the type of command
 
@@ -64,14 +68,27 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):  # pylint: disable=a
         if type_ == "write":
             # writes the data coming from the websocket
             find_node(self.bridge.state_tree, path).data = m["data"]
-            if m["path"] != "renderingState/camera" and m["path"] != "webrtc/offer":
+            if (
+                m["path"] != "renderingState/camera"
+                and m["path"] != "webrtc/offer"
+            ):
                 # dispatch to the websockets if not a camera update!
                 # TODO(ethan): handle the camera properly!
                 # TODO: but don't update the current websocket
-                command = {"type": "write", "path": m["path"], "data": m["data"]}
+                command = {
+                    "type": "write",
+                    "path": m["path"],
+                    "data": m["data"],
+                }
                 packed_data = umsgpack.packb(command)
-                frames = ["write".encode("utf-8"), m["path"].encode("utf-8"), packed_data]
-                self.bridge.forward_to_websockets(frames, websocket_to_skip=self)
+                frames = [
+                    "write".encode("utf-8"),
+                    m["path"].encode("utf-8"),
+                    packed_data,
+                ]
+                self.bridge.forward_to_websockets(
+                    frames, websocket_to_skip=self
+                )
         elif type_ == "read":
             # reads and returns the data
             data = find_node(self.bridge.state_tree, path).data
@@ -108,7 +125,9 @@ class ZMQWebSocketBridge:
 
         # zmq
         zmq_url = f"tcp://{ip_address}:{self.zmq_port:d}"
-        self.zmq_socket, self.zmq_stream, self.zmq_url = self.setup_zmq(zmq_url)
+        self.zmq_socket, self.zmq_stream, self.zmq_url = self.setup_zmq(
+            zmq_url
+        )
 
         # websocket
         listen_kwargs = {"address": "0.0.0.0"}
@@ -125,7 +144,9 @@ class ZMQWebSocketBridge:
 
     def make_app(self):
         """Create a tornado application for the websocket server."""
-        return tornado.web.Application([(r"/", WebSocketHandler, {"bridge": self})])
+        return tornado.web.Application(
+            [(r"/", WebSocketHandler, {"bridge": self})]
+        )
 
     def handle_zmq(self, frames: List[bytes]):
         """Switch function that places commands in tree based on websocket command
@@ -137,7 +158,9 @@ class ZMQWebSocketBridge:
             self.zmq_socket.send(b"error: expected 3 frames")
             return
         type_ = frames[0].decode("utf-8")
-        path = list(filter(lambda x: len(x) > 0, frames[1].decode("utf-8").split("/")))
+        path = list(
+            filter(lambda x: len(x) > 0, frames[1].decode("utf-8").split("/"))
+        )
         data = frames[2]
 
         if type_ == "write":
@@ -155,7 +178,9 @@ class ZMQWebSocketBridge:
             self.zmq_socket.send(umsgpack.packb(b"error: unknown command"))
 
     def forward_to_websockets(
-        self, frames: Tuple[str, str, bytes], websocket_to_skip: Optional[WebSocketHandler] = None
+        self,
+        frames: Tuple[str, str, bytes],
+        websocket_to_skip: Optional[WebSocketHandler] = None,
     ):
         """Forward a zmq message to all websockets.
 
@@ -187,7 +212,9 @@ class ZMQWebSocketBridge:
         Args:
             websocket: websocket to send information over
         """
-        print("Sending entire scene state due to websocket connection established.")
+        print(
+            "Sending entire scene state due to websocket connection established."
+        )
         for path, node in walk("", self.state_tree):
             if node.data is not None:
                 command = {"type": "write", "path": path, "data": node.data}
@@ -199,7 +226,10 @@ class ZMQWebSocketBridge:
 
 
 def run_viewer_bridge_server(
-    zmq_port: int = 6000, websocket_port: int = 7007, ip_address: str = "127.0.0.1", use_ngrok: bool = False
+    zmq_port: int = 6000,
+    websocket_port: int = 7007,
+    ip_address: str = "127.0.0.1",
+    use_ngrok: bool = False,
 ):
     """Run the viewer bridge server.
 
@@ -217,7 +247,9 @@ def run_viewer_bridge_server(
         http_tunnel = ngrok.connect(addr=str(zmq_port), proto="tcp")
         print(http_tunnel)
 
-    bridge = ZMQWebSocketBridge(zmq_port=zmq_port, websocket_port=websocket_port, ip_address=ip_address)
+    bridge = ZMQWebSocketBridge(
+        zmq_port=zmq_port, websocket_port=websocket_port, ip_address=ip_address
+    )
     print(bridge)
     try:
         bridge.run()

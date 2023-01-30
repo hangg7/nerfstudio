@@ -28,18 +28,18 @@ import torch
 import torch.distributed as dist
 from rich.progress import (
     BarColumn,
+    Console,
     MofNCompleteColumn,
     Progress,
     TextColumn,
     TimeElapsedColumn,
-    Console
+    track,
 )
 from torch import nn
 from torch.nn import Parameter
 from torch.nn.parallel import DistributedDataParallel as DDP
-from typing_extensions import Literal
-from rich.progress import track
 from tqdm import tqdm
+from typing_extensions import Literal
 
 from nerfstudio.configs import base_config as cfg
 from nerfstudio.data.datamanagers.base_datamanager import (
@@ -47,8 +47,11 @@ from nerfstudio.data.datamanagers.base_datamanager import (
     VanillaDataManager,
     VanillaDataManagerConfig,
 )
+from nerfstudio.engine.callbacks import (
+    TrainingCallback,
+    TrainingCallbackAttributes,
+)
 from nerfstudio.model_components.losses import MSELoss
-from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import profiler
 
@@ -127,7 +130,9 @@ class Pipeline(nn.Module):
         ray_bundle, batch = self.datamanager.next_train(step)
         model_outputs = self.model(ray_bundle, batch)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        loss_dict = self.model.get_loss_dict(
+            model_outputs, batch, metrics_dict
+        )
 
         return model_outputs, loss_dict, metrics_dict
 
@@ -146,7 +151,9 @@ class Pipeline(nn.Module):
         ray_bundle, batch = self.datamanager.next_eval(step)
         model_outputs = self.model(ray_bundle, batch)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        loss_dict = self.model.get_loss_dict(
+            model_outputs, batch, metrics_dict
+        )
         self.train()
         return model_outputs, loss_dict, metrics_dict
 
@@ -236,11 +243,16 @@ class VanillaPipeline(Pipeline):
         self.config = config
         self.test_mode = test_mode
         self.datamanager: VanillaDataManager = config.datamanager.setup(
-            device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
+            device=device,
+            test_mode=test_mode,
+            world_size=world_size,
+            local_rank=local_rank,
         )
         self.datamanager.to(device)
         # TODO(ethan): get rid of scene_bounds from the model
-        assert self.datamanager.train_dataset is not None, "Missing input dataset"
+        assert (
+            self.datamanager.train_dataset is not None
+        ), "Missing input dataset"
 
         self._model = config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
@@ -252,7 +264,14 @@ class VanillaPipeline(Pipeline):
 
         self.world_size = world_size
         if world_size > 1:
-            self._model = typing.cast(Model, DDP(self._model, device_ids=[local_rank], find_unused_parameters=True))
+            self._model = typing.cast(
+                Model,
+                DDP(
+                    self._model,
+                    device_ids=[local_rank],
+                    find_unused_parameters=True,
+                ),
+            )
             dist.barrier(device_ids=[local_rank])
 
     @property
@@ -273,17 +292,25 @@ class VanillaPipeline(Pipeline):
         model_outputs = self.model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
 
-        camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group + "_train"
+        camera_opt_param_group = (
+            self.config.datamanager.camera_optimizer.param_group + "_train"
+        )
         if camera_opt_param_group in self.datamanager.get_param_groups():
             # Report the camera optimization metrics
             metrics_dict["camera_opt_translation"] = (
-                self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, :3].norm()
+                self.datamanager.get_param_groups()[camera_opt_param_group][0]
+                .data[:, :3]
+                .norm()
             )
             metrics_dict["camera_opt_rotation"] = (
-                self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, 3:].norm()
+                self.datamanager.get_param_groups()[camera_opt_param_group][0]
+                .data[:, 3:]
+                .norm()
             )
 
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        loss_dict = self.model.get_loss_dict(
+            model_outputs, batch, metrics_dict
+        )
 
         return model_outputs, loss_dict, metrics_dict
 
@@ -306,7 +333,9 @@ class VanillaPipeline(Pipeline):
         ray_bundle, batch = self.datamanager.next_eval(step)
         model_outputs = self.model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        loss_dict = self.model.get_loss_dict(
+            model_outputs, batch, metrics_dict
+        )
         self.train()
         return model_outputs, loss_dict, metrics_dict
 
@@ -319,10 +348,17 @@ class VanillaPipeline(Pipeline):
             step: current iteration step
         """
         self.eval()
-        image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(step)
+        image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(
+            step
+        )
         with torch.no_grad():
-            outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-            metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
+            outputs = self.model.get_outputs_for_camera_ray_bundle(
+                camera_ray_bundle
+            )
+            (
+                metrics_dict,
+                images_dict,
+            ) = self.model.get_image_metrics_and_images(outputs, batch)
         assert "image_idx" not in metrics_dict
         metrics_dict["image_idx"] = image_idx
         assert "num_rays" not in metrics_dict
@@ -331,14 +367,16 @@ class VanillaPipeline(Pipeline):
         return metrics_dict, images_dict
 
     @profiler.time_function
-    def get_average_eval_image_metrics(self, step: Optional[int] = None):
+    def get_average_eval_image_metrics(
+        self, step: Optional[int] = None, return_imgs: bool = False
+    ):
         """Iterate over all the images in the eval dataset and get the average.
 
         Returns:
             metrics_dict: dictionary of metrics
         """
         self.eval()
-        metrics_dict_list = []
+        metrics_dict_list, images_dict_list = [], []
         num_images = len(self.datamanager.eval_dataset)
         with Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -347,7 +385,9 @@ class VanillaPipeline(Pipeline):
             MofNCompleteColumn(),
             transient=True,
         ) as progress:
-            task = progress.add_task("[green]Evaluating all eval images...", total=num_images)
+            task = progress.add_task(
+                "[green]Evaluating all eval images...", total=num_images
+            )
             for idx in range(num_images):
                 camera_ray_bundle, batch = self.datamanager.get_eval_image(idx)
                 # time this the following line
@@ -361,11 +401,18 @@ class VanillaPipeline(Pipeline):
                     # raise error if the method not nerfacto
 
                     # get the eval camera optimizer's parameters
-                    camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group + "_eval"
+                    camera_opt_param_group = (
+                        self.config.datamanager.camera_optimizer.param_group
+                        + "_eval"
+                    )
                     # reinitialize the parameters
                     self.datamanager.eval_camera_optimizer.initialize_parameters()
                     param_groups = self.datamanager.get_param_groups()
-                    optimizer = torch.optim.Adam(param_groups[camera_opt_param_group], lr=1e-3, eps=1e-15)
+                    optimizer = torch.optim.Adam(
+                        param_groups[camera_opt_param_group],
+                        lr=1e-3,
+                        eps=1e-15,
+                    )
 
                     # # check that camera optimizer is on
                     # if self.config.datamanager.camera_optimizer.mode == "off":
@@ -382,12 +429,22 @@ class VanillaPipeline(Pipeline):
                     for _ in range(self.config.eval_num_pose_iters):
                         # optimize the ray generator's camera optimizer
                         optimizer.zero_grad()
-                        camera_ray_bundle, batch = self.datamanager.get_eval_image(
-                            idx, scale_factor=self.config.eval_image_scale_factor
+                        (
+                            camera_ray_bundle,
+                            batch,
+                        ) = self.datamanager.get_eval_image(
+                            idx,
+                            scale_factor=self.config.eval_image_scale_factor,
                         )
-                        outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                        metrics_dict = self.model.get_metrics_dict(outputs, batch)
-                        loss_dict = self.model.get_loss_dict(outputs, batch, metrics_dict)
+                        outputs = self.model.get_outputs_for_camera_ray_bundle(
+                            camera_ray_bundle
+                        )
+                        metrics_dict = self.model.get_metrics_dict(
+                            outputs, batch
+                        )
+                        loss_dict = self.model.get_loss_dict(
+                            outputs, batch, metrics_dict
+                        )
 
                         # save the image
                         # import mediapy as media
@@ -411,8 +468,12 @@ class VanillaPipeline(Pipeline):
 
                     # initial the parameters as the mean appearance embedding
                     self.model.field.initialize_embedding_appearance_eval()
-                    appearance_parameters = self.model.field.embedding_appearance_eval.parameters()
-                    optimizer = torch.optim.Adam(appearance_parameters, lr=1e-3, eps=1e-15)
+                    appearance_parameters = (
+                        self.model.field.embedding_appearance_eval.parameters()
+                    )
+                    optimizer = torch.optim.Adam(
+                        appearance_parameters, lr=1e-3, eps=1e-15
+                    )
 
                     side = random.choice([0, 1])
                     half_width = width // 2
@@ -420,18 +481,32 @@ class VanillaPipeline(Pipeline):
 
                     for _ in range(self.config.eval_num_appearance_iters):
                         optimizer.zero_grad()
-                        camera_ray_bundle, batch = self.datamanager.get_eval_image(
-                            idx, scale_factor=self.config.eval_image_scale_factor
+                        (
+                            camera_ray_bundle,
+                            batch,
+                        ) = self.datamanager.get_eval_image(
+                            idx,
+                            scale_factor=self.config.eval_image_scale_factor,
                         )
-                        outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                        metrics_dict = self.model.get_metrics_dict(outputs, batch)
+                        outputs = self.model.get_outputs_for_camera_ray_bundle(
+                            camera_ray_bundle
+                        )
+                        metrics_dict = self.model.get_metrics_dict(
+                            outputs, batch
+                        )
 
                         # compute loss on half the image
                         image = batch["image"].to(self.device)
                         if side == 0:
-                            loss = rgb_loss(image[:, :half_width], outputs["rgb"][:, :half_width])
+                            loss = rgb_loss(
+                                image[:, :half_width],
+                                outputs["rgb"][:, :half_width],
+                            )
                         else:
-                            loss = rgb_loss(image[:, half_width:], outputs["rgb"][:, half_width:])
+                            loss = rgb_loss(
+                                image[:, half_width:],
+                                outputs["rgb"][:, half_width:],
+                            )
 
                         # save the image
                         # import mediapy as media
@@ -441,30 +516,58 @@ class VanillaPipeline(Pipeline):
                         loss.backward()
                         optimizer.step()
 
-                    self.datamanager.eval_ray_generator.cameras.rescale_output_resolution(1.0 / self.config.eval_image_scale_factor)
+                    self.datamanager.eval_ray_generator.cameras.rescale_output_resolution(
+                        1.0 / self.config.eval_image_scale_factor
+                    )
                     # delete the appearance embedding
                     self.model.field.embedding_appearance_eval = None
                     self.eval()
                     # CONSOLE.print("Done optimizing appearance.")
 
                 with torch.no_grad():
-                    outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                    metrics_dict, _ = self.model.get_image_metrics_and_images(outputs, batch)
+                    outputs = self.model.get_outputs_for_camera_ray_bundle(
+                        camera_ray_bundle
+                    )
+                    (
+                        metrics_dict,
+                        images_dict,
+                    ) = self.model.get_image_metrics_and_images(outputs, batch)
                 assert "num_rays_per_sec" not in metrics_dict
-                metrics_dict["num_rays_per_sec"] = num_rays / (time() - inner_start)
+                metrics_dict["num_rays_per_sec"] = num_rays / (
+                    time() - inner_start
+                )
                 fps_str = "fps"
                 assert fps_str not in metrics_dict
-                metrics_dict[fps_str] = metrics_dict["num_rays_per_sec"] / (height * width)
+                metrics_dict[fps_str] = metrics_dict["num_rays_per_sec"] / (
+                    height * width
+                )
                 metrics_dict_list.append(metrics_dict)
+                images_dict_list.append(images_dict)
                 progress.advance(task)
         # average the metrics list
         metrics_dict = {}
         for key in metrics_dict_list[0].keys():
             metrics_dict[key] = float(
-                torch.mean(torch.tensor([metrics_dict[key] for metrics_dict in metrics_dict_list]))
+                torch.mean(
+                    torch.tensor(
+                        [
+                            metrics_dict[key]
+                            for metrics_dict in metrics_dict_list
+                        ]
+                    )
+                )
+            )
+        images_dict = {}
+        for key in images_dict_list[0].keys():
+            images_dict[key] = torch.stack(
+                [images_dict[key] for images_dict in images_dict_list],
+                dim=0,
             )
         self.train()
-        return metrics_dict
+        if not return_imgs:
+            return metrics_dict
+        else:
+            return metrics_dict, images_dict
 
     def load_pipeline(self, loaded_state: Dict[str, Any]) -> None:
         """Load the checkpoint from the given path
@@ -472,22 +575,39 @@ class VanillaPipeline(Pipeline):
         Args:
             loaded_state: pre-trained model state dict
         """
-        state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
+        state = {
+            key.replace("module.", ""): value
+            for key, value in loaded_state.items()
+        }
         if self.test_mode == "inference":
-            state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
+            state.pop(
+                "datamanager.train_camera_optimizer.pose_adjustment", None
+            )
             state.pop("datamanager.train_ray_generator.image_coords", None)
-            state.pop("datamanager.train_ray_generator.pose_optimizer.pose_adjustment", None)
-            state.pop("datamanager.eval_camera_optimizer.pose_adjustment", None)
+            state.pop(
+                "datamanager.train_ray_generator.pose_optimizer.pose_adjustment",
+                None,
+            )
+            state.pop(
+                "datamanager.eval_camera_optimizer.pose_adjustment", None
+            )
             state.pop("datamanager.eval_ray_generator.image_coords", None)
-            state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
+            state.pop(
+                "datamanager.eval_ray_generator.pose_optimizer.pose_adjustment",
+                None,
+            )
         self.load_state_dict(state)  # type: ignore
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
     ) -> List[TrainingCallback]:
         """Returns the training callbacks from both the Dataloader and the Model."""
-        datamanager_callbacks = self.datamanager.get_training_callbacks(training_callback_attributes)
-        model_callbacks = self.model.get_training_callbacks(training_callback_attributes)
+        datamanager_callbacks = self.datamanager.get_training_callbacks(
+            training_callback_attributes
+        )
+        model_callbacks = self.model.get_training_callbacks(
+            training_callback_attributes
+        )
         callbacks = datamanager_callbacks + model_callbacks
         return callbacks
 

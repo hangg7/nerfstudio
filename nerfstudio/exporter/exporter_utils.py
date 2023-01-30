@@ -71,13 +71,17 @@ def get_mesh_from_pymeshlab_mesh(mesh: pymeshlab.Mesh) -> Mesh:
     )
 
 
-def get_mesh_from_filename(filename: str, target_num_faces: Optional[int] = None) -> Mesh:
+def get_mesh_from_filename(
+    filename: str, target_num_faces: Optional[int] = None
+) -> Mesh:
     """Get a Mesh from a filename."""
     ms = pymeshlab.MeshSet()
     ms.load_new_mesh(filename)
     if target_num_faces is not None:
         CONSOLE.print("Running meshing decimation with quadric edge collapse")
-        ms.meshing_decimation_quadric_edge_collapse(targetfacenum=target_num_faces)
+        ms.meshing_decimation_quadric_edge_collapse(
+            targetfacenum=target_num_faces
+        )
     mesh = ms.current_mesh()
     return get_mesh_from_pymeshlab_mesh(mesh)
 
@@ -126,28 +130,48 @@ def generate_point_cloud(
     rgbs = []
     normals = []
     with progress as progress_bar:
-        task = progress_bar.add_task("Generating Point Cloud", total=num_points)
+        task = progress_bar.add_task(
+            "Generating Point Cloud", total=num_points
+        )
         while not progress_bar.finished:
             with torch.no_grad():
                 ray_bundle, _ = pipeline.datamanager.next_train(0)
                 outputs = pipeline.model(ray_bundle)
             if rgb_output_name not in outputs:
                 CONSOLE.rule("Error", style="red")
-                CONSOLE.print(f"Could not find {rgb_output_name} in the model outputs", justify="center")
-                CONSOLE.print(f"Please set --rgb_output_name to one of: {outputs.keys()}", justify="center")
+                CONSOLE.print(
+                    f"Could not find {rgb_output_name} in the model outputs",
+                    justify="center",
+                )
+                CONSOLE.print(
+                    f"Please set --rgb_output_name to one of: {outputs.keys()}",
+                    justify="center",
+                )
                 sys.exit(1)
             if depth_output_name not in outputs:
                 CONSOLE.rule("Error", style="red")
-                CONSOLE.print(f"Could not find {depth_output_name} in the model outputs", justify="center")
-                CONSOLE.print(f"Please set --depth_output_name to one of: {outputs.keys()}", justify="center")
+                CONSOLE.print(
+                    f"Could not find {depth_output_name} in the model outputs",
+                    justify="center",
+                )
+                CONSOLE.print(
+                    f"Please set --depth_output_name to one of: {outputs.keys()}",
+                    justify="center",
+                )
                 sys.exit(1)
             rgb = outputs[rgb_output_name]
             depth = outputs[depth_output_name]
             if normal_output_name is not None:
                 if normal_output_name not in outputs:
                     CONSOLE.rule("Error", style="red")
-                    CONSOLE.print(f"Could not find {normal_output_name} in the model outputs", justify="center")
-                    CONSOLE.print(f"Please set --normal_output_name to one of: {outputs.keys()}", justify="center")
+                    CONSOLE.print(
+                        f"Could not find {normal_output_name} in the model outputs",
+                        justify="center",
+                    )
+                    CONSOLE.print(
+                        f"Please set --normal_output_name to one of: {outputs.keys()}",
+                        justify="center",
+                    )
                     sys.exit(1)
                 normal = outputs[normal_output_name]
             point = ray_bundle.origins + ray_bundle.directions * depth
@@ -158,7 +182,10 @@ def generate_point_cloud(
                 assert torch.all(
                     comp_l < comp_m
                 ), f"Bounding box min {bounding_box_min} must be smaller than max {bounding_box_max}"
-                mask = torch.all(torch.concat([point > comp_l, point < comp_m], dim=-1), dim=-1)
+                mask = torch.all(
+                    torch.concat([point > comp_l, point < comp_m], dim=-1),
+                    dim=-1,
+                )
                 point = point[mask]
                 rgb = rgb[mask]
                 if normal_output_name is not None:
@@ -179,7 +206,9 @@ def generate_point_cloud(
     ind = None
     if remove_outliers:
         CONSOLE.print("Cleaning Point Cloud")
-        pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+        pcd, ind = pcd.remove_statistical_outlier(
+            nb_neighbors=20, std_ratio=std_ratio
+        )
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Cleaning Point Cloud")
 
@@ -187,12 +216,17 @@ def generate_point_cloud(
     if estimate_normals:
         if normal_output_name is not None:
             CONSOLE.rule("Error", style="red")
-            CONSOLE.print("Cannot estimate normals and use normal_output_name at the same time", justify="center")
+            CONSOLE.print(
+                "Cannot estimate normals and use normal_output_name at the same time",
+                justify="center",
+            )
             sys.exit(1)
         CONSOLE.print("Estimating Point Cloud Normals")
         pcd.estimate_normals()
         print("\033[A\033[A")
-        CONSOLE.print("[bold green]:white_check_mark: Estimating Point Cloud Normals")
+        CONSOLE.print(
+            "[bold green]:white_check_mark: Estimating Point Cloud Normals"
+        )
     elif normal_output_name is not None:
         normals = torch.cat(normals, dim=0)
         if ind is not None:
@@ -238,19 +272,34 @@ def render_trajectory(
     with progress:
         for camera_idx in progress.track(range(cameras.size), description=""):
             camera_ray_bundle = cameras.generate_rays(
-                camera_indices=camera_idx, disable_distortion=disable_distortion
+                camera_indices=camera_idx,
+                disable_distortion=disable_distortion,
             ).to(pipeline.device)
             with torch.no_grad():
-                outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+                outputs = pipeline.model.get_outputs_for_camera_ray_bundle(
+                    camera_ray_bundle
+                )
             if rgb_output_name not in outputs:
                 CONSOLE.rule("Error", style="red")
-                CONSOLE.print(f"Could not find {rgb_output_name} in the model outputs", justify="center")
-                CONSOLE.print(f"Please set --rgb_output_name to one of: {outputs.keys()}", justify="center")
+                CONSOLE.print(
+                    f"Could not find {rgb_output_name} in the model outputs",
+                    justify="center",
+                )
+                CONSOLE.print(
+                    f"Please set --rgb_output_name to one of: {outputs.keys()}",
+                    justify="center",
+                )
                 sys.exit(1)
             if depth_output_name not in outputs:
                 CONSOLE.rule("Error", style="red")
-                CONSOLE.print(f"Could not find {depth_output_name} in the model outputs", justify="center")
-                CONSOLE.print(f"Please set --depth_output_name to one of: {outputs.keys()}", justify="center")
+                CONSOLE.print(
+                    f"Could not find {depth_output_name} in the model outputs",
+                    justify="center",
+                )
+                CONSOLE.print(
+                    f"Please set --depth_output_name to one of: {outputs.keys()}",
+                    justify="center",
+                )
                 sys.exit(1)
             images.append(outputs[rgb_output_name].cpu().numpy())
             depths.append(outputs[depth_output_name].cpu().numpy())

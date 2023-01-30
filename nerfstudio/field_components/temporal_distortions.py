@@ -28,7 +28,11 @@ from nerfstudio.field_components.mlp import MLP
 class TemporalDistortion(nn.Module):
     """Apply spatial distortions as a function of time"""
 
-    def forward(self, positions: TensorType["bs":..., 3], times: Optional[TensorType[1]]) -> TensorType["bs":..., 3]:
+    def forward(
+        self,
+        positions: TensorType["bs":..., 3],
+        times: Optional[TensorType[1]],
+    ) -> TensorType["bs":..., 3]:
         """
         Args:
             positions: Samples to translate as a function of time
@@ -44,7 +48,9 @@ class TemporalDistortionKind(Enum):
 
     DNERF = "dnerf"
 
-    def to_temporal_distortion(self, config: Dict[str, Any]) -> TemporalDistortion:
+    def to_temporal_distortion(
+        self, config: Dict[str, Any]
+    ) -> TemporalDistortion:
         """Converts this kind to a temporal distortion"""
         if self == TemporalDistortionKind.DNERF:
             return DNeRFDistortion(**config)
@@ -64,10 +70,18 @@ class DNeRFDistortion(TemporalDistortion):
     def __init__(
         self,
         position_encoding: Encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=10, min_freq_exp=0.0, max_freq_exp=8.0, include_input=True
+            in_dim=3,
+            num_frequencies=10,
+            min_freq_exp=0.0,
+            max_freq_exp=8.0,
+            include_input=True,
         ),
         temporal_encoding: Encoding = NeRFEncoding(
-            in_dim=1, num_frequencies=10, min_freq_exp=0.0, max_freq_exp=8.0, include_input=True
+            in_dim=1,
+            num_frequencies=10,
+            min_freq_exp=0.0,
+            max_freq_exp=8.0,
+            include_input=True,
         ),
         mlp_num_layers: int = 4,
         mlp_layer_width: int = 256,
@@ -77,7 +91,8 @@ class DNeRFDistortion(TemporalDistortion):
         self.position_encoding = position_encoding
         self.temporal_encoding = temporal_encoding
         self.mlp_deform = MLP(
-            in_dim=self.position_encoding.get_out_dim() + self.temporal_encoding.get_out_dim(),
+            in_dim=self.position_encoding.get_out_dim()
+            + self.temporal_encoding.get_out_dim(),
             out_dim=3,
             num_layers=mlp_num_layers,
             layer_width=mlp_layer_width,

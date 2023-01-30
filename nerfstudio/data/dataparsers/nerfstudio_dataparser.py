@@ -27,7 +27,11 @@ from rich.console import Console
 from typing_extensions import Literal
 
 from nerfstudio.cameras import camera_utils
-from nerfstudio.cameras.cameras import CAMERA_MODEL_TO_TYPE, Cameras, CameraType
+from nerfstudio.cameras.cameras import (
+    CAMERA_MODEL_TO_TYPE,
+    Cameras,
+    CameraType,
+)
 from nerfstudio.data.dataparsers.base_dataparser import (
     DataParser,
     DataParserConfig,
@@ -62,6 +66,9 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Whether to automatically scale the poses to fit in +/- 1 bounding box."""
     train_split_percentage: float = 0.9
     """The percent of images to use for training. The remaining images are for eval."""
+
+    load_alphabetical: bool = False
+    split_align_llff: bool = False
 
 
 @dataclass
@@ -153,11 +160,13 @@ class Nerfstudio(DataParser):
                 )
                 mask_filenames.append(mask_fname)
         if num_skipped_image_filenames >= 0:
-            CONSOLE.log(f"Skipping {num_skipped_image_filenames} files in dataset split {split}.")
+            CONSOLE.log(
+                f"Skipping {num_skipped_image_filenames} files in dataset split {split}."
+            )
         assert (
             len(image_filenames) != 0
         ), """
-        No image files found. 
+        No image files found.
         You should check the file_paths in the transforms.json file to make sure they are correct.
         """
         assert len(mask_filenames) == 0 or (
@@ -167,16 +176,46 @@ class Nerfstudio(DataParser):
         You should check that mask_path is specified for every frame (or zero frames) in transforms.json.
         """
 
+        if self.config.load_alphabetical:
+            inds = np.argsort(image_filenames)
+            image_filenames = [image_filenames[i] for i in inds]
+            mask_filenames = (
+                [mask_filenames[i] for i in inds] if mask_filenames else []
+            )
+            poses = [poses[i] for i in inds]
+
         # filter image_filenames and poses based on train/eval split percentage
         num_images = len(image_filenames)
-        num_train_images = math.ceil(num_images * self.config.train_split_percentage)
-        num_eval_images = num_images - num_train_images
         i_all = np.arange(num_images)
-        i_train = np.linspace(
-            0, num_images - 1, num_train_images, dtype=int
-        )  # equally spaced training images starting and ending at 0 and num_images-1
-        i_eval = np.setdiff1d(i_all, i_train)  # eval images are the remaining images
-        assert len(i_eval) == num_eval_images
+        if not self.config.split_align_llff:
+            num_train_images = math.ceil(
+                num_images * self.config.train_split_percentage
+            )
+            num_eval_images = num_images - num_train_images
+            i_train = np.linspace(
+                0, num_images - 1, num_train_images, dtype=int
+            )  # equally spaced training images starting and ending at 0 and num_images-1
+            i_eval = np.setdiff1d(
+                i_all, i_train
+            )  # eval images are the remaining images
+            assert len(i_eval) == num_eval_images
+        else:
+            i_train = np.array(
+                [
+                    i
+                    for i in i_all
+                    if i % int(1 / (1 - self.config.train_split_percentage))
+                    != 0
+                ]
+            )
+            i_eval = np.array(
+                [
+                    i
+                    for i in i_all
+                    if i % int(1 / (1 - self.config.train_split_percentage))
+                    == 0
+                ]
+            )
         if split == "train":
             indices = i_train
         elif split in ["val", "test"]:
@@ -186,7 +225,9 @@ class Nerfstudio(DataParser):
 
         if "orientation_override" in meta:
             orientation_method = meta["orientation_override"]
-            CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
+            CONSOLE.log(
+                f"[yellow] Dataset is overriding orientation method to {orientation_method}"
+            )
         else:
             orientation_method = self.config.orientation_method
 
@@ -207,7 +248,11 @@ class Nerfstudio(DataParser):
 
         # Choose image_filenames and poses based on split, but after auto orient and scaling the poses.
         image_filenames = [image_filenames[i] for i in indices]
-        mask_filenames = [mask_filenames[i] for i in indices] if len(mask_filenames) > 0 else []
+        mask_filenames = (
+            [mask_filenames[i] for i in indices]
+            if len(mask_filenames) > 0
+            else []
+        )
         poses = poses[indices]
 
         # in x,y,z order
@@ -215,7 +260,11 @@ class Nerfstudio(DataParser):
         aabb_scale = self.config.scene_scale
         scene_box = SceneBox(
             aabb=torch.tensor(
-                [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]], dtype=torch.float32
+                [
+                    [-aabb_scale, -aabb_scale, -aabb_scale],
+                    [aabb_scale, aabb_scale, aabb_scale],
+                ],
+                dtype=torch.float32,
             )
         )
 
@@ -225,12 +274,36 @@ class Nerfstudio(DataParser):
             camera_type = CameraType.PERSPECTIVE
 
         idx_tensor = torch.tensor(indices, dtype=torch.long)
-        fx = float(meta["fl_x"]) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
-        fy = float(meta["fl_y"]) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
-        cx = float(meta["cx"]) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
-        cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
-        height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
-        width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
+        fx = (
+            float(meta["fl_x"])
+            if fx_fixed
+            else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
+        )
+        fy = (
+            float(meta["fl_y"])
+            if fy_fixed
+            else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
+        )
+        cx = (
+            float(meta["cx"])
+            if cx_fixed
+            else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
+        )
+        cy = (
+            float(meta["cy"])
+            if cy_fixed
+            else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
+        )
+        height = (
+            int(meta["h"])
+            if height_fixed
+            else torch.tensor(height, dtype=torch.int32)[idx_tensor]
+        )
+        width = (
+            int(meta["w"])
+            if width_fixed
+            else torch.tensor(width, dtype=torch.int32)[idx_tensor]
+        )
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,
@@ -256,7 +329,9 @@ class Nerfstudio(DataParser):
         )
 
         assert self.downscale_factor is not None
-        cameras.rescale_output_resolution(scaling_factor=1.0 / self.downscale_factor)
+        cameras.rescale_output_resolution(
+            scaling_factor=1.0 / self.downscale_factor
+        )
 
         dataparser_outputs = DataparserOutputs(
             image_filenames=image_filenames,
@@ -268,7 +343,12 @@ class Nerfstudio(DataParser):
         )
         return dataparser_outputs
 
-    def _get_fname(self, filepath: PurePath, data_dir: PurePath, downsample_folder_prefix="images_") -> Path:
+    def _get_fname(
+        self,
+        filepath: PurePath,
+        data_dir: PurePath,
+        downsample_folder_prefix="images_",
+    ) -> Path:
         """Get the filename of the image file.
         downsample_folder_prefix can be used to point to auxillary image data, e.g. masks
 
@@ -286,15 +366,25 @@ class Nerfstudio(DataParser):
                 while True:
                     if (max_res / 2 ** (df)) < MAX_AUTO_RESOLUTION:
                         break
-                    if not (data_dir / f"{downsample_folder_prefix}{2**(df+1)}" / filepath.name).exists():
+                    if not (
+                        data_dir
+                        / f"{downsample_folder_prefix}{2**(df+1)}"
+                        / filepath.name
+                    ).exists():
                         break
                     df += 1
 
                 self.downscale_factor = 2**df
-                CONSOLE.log(f"Auto image downscale factor of {self.downscale_factor}")
+                CONSOLE.log(
+                    f"Auto image downscale factor of {self.downscale_factor}"
+                )
             else:
                 self.downscale_factor = self.config.downscale_factor
 
         if self.downscale_factor > 1:
-            return data_dir / f"{downsample_folder_prefix}{self.downscale_factor}" / filepath.name
+            return (
+                data_dir
+                / f"{downsample_folder_prefix}{self.downscale_factor}"
+                / filepath.name
+            )
         return data_dir / filepath

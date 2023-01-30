@@ -45,7 +45,9 @@ class ProcessImages:
     """Path to the output directory."""
     camera_type: Literal["perspective", "fisheye"] = "perspective"
     """Camera model to use."""
-    matching_method: Literal["exhaustive", "sequential", "vocab_tree"] = "vocab_tree"
+    matching_method: Literal[
+        "exhaustive", "sequential", "vocab_tree"
+    ] = "vocab_tree"
     """Feature matching method to use. Vocab tree is recommended for a balance of speed and
         accuracy. Exhaustive is slower but more accurate. Sequential is faster but should only be used for videos."""
     sfm_tool: Literal["any", "colmap", "hloc"] = "any"
@@ -65,7 +67,14 @@ class ProcessImages:
     ] = "any"
     """Type of feature to use."""
     matcher_type: Literal[
-        "any", "NN", "superglue", "superglue-fast", "NN-superpoint", "NN-ratio", "NN-mutual", "adalam"
+        "any",
+        "NN",
+        "superglue",
+        "superglue-fast",
+        "NN-superpoint",
+        "NN-ratio",
+        "NN-mutual",
+        "adalam",
     ] = "any"
     """Matching algorithm."""
     num_downscales: int = 3
@@ -92,18 +101,28 @@ class ProcessImages:
         summary_log = []
 
         # Copy images to output directory
-        num_frames = process_data_utils.copy_images(self.data, image_dir=image_dir, verbose=self.verbose)
+        num_frames = process_data_utils.copy_images(
+            self.data, image_dir=image_dir, verbose=self.verbose
+        )
         summary_log.append(f"Starting with {num_frames} images")
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         # Run COLMAP
         colmap_dir = self.output_dir / "colmap"
         if not self.skip_colmap:
             colmap_dir.mkdir(parents=True, exist_ok=True)
 
-            (sfm_tool, feature_type, matcher_type) = process_data_utils.find_tool_feature_matcher_combination(
+            (
+                sfm_tool,
+                feature_type,
+                matcher_type,
+            ) = process_data_utils.find_tool_feature_matcher_combination(
                 self.sfm_tool, self.feature_type, self.matcher_type
             )
 
@@ -128,24 +147,39 @@ class ProcessImages:
                     matcher_type=matcher_type,
                 )
             else:
-                CONSOLE.log("[bold red]Invalid combination of sfm_tool, feature_type, and matcher_type, exiting")
+                CONSOLE.log(
+                    "[bold red]Invalid combination of sfm_tool, feature_type, and matcher_type, exiting"
+                )
                 sys.exit(1)
 
         # Save transforms.json
         if (colmap_dir / "sparse" / "0" / "cameras.bin").exists():
-            with CONSOLE.status("[bold yellow]Saving results to transforms.json", spinner="balloon"):
+            with CONSOLE.status(
+                "[bold yellow]Saving results to transforms.json",
+                spinner="balloon",
+            ):
                 num_matched_frames = colmap_utils.colmap_to_json(
                     cameras_path=colmap_dir / "sparse" / "0" / "cameras.bin",
                     images_path=colmap_dir / "sparse" / "0" / "images.bin",
                     output_dir=self.output_dir,
                     camera_model=CAMERA_MODELS[self.camera_type],
                 )
-                summary_log.append(f"Colmap matched {num_matched_frames} images")
-            summary_log.append(colmap_utils.get_matching_summary(num_frames, num_matched_frames))
+                summary_log.append(
+                    f"Colmap matched {num_matched_frames} images"
+                )
+            summary_log.append(
+                colmap_utils.get_matching_summary(
+                    num_frames, num_matched_frames
+                )
+            )
         else:
-            CONSOLE.log("[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json")
+            CONSOLE.log(
+                "[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json"
+            )
 
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")
@@ -171,7 +205,9 @@ class ProcessVideo:
     """Target number of frames to use for the dataset, results may not be exact."""
     camera_type: Literal["perspective", "fisheye"] = "perspective"
     """Camera model to use."""
-    matching_method: Literal["exhaustive", "sequential", "vocab_tree"] = "vocab_tree"
+    matching_method: Literal[
+        "exhaustive", "sequential", "vocab_tree"
+    ] = "vocab_tree"
     """Feature matching method to use. Vocab tree is recommended for a balance of speed and
         accuracy. Exhaustive is slower but more accurate. Sequential is faster but should only be used for videos."""
     sfm_tool: Literal["any", "colmap", "hloc"] = "any"
@@ -191,7 +227,14 @@ class ProcessVideo:
     ] = "any"
     """Type of feature to use."""
     matcher_type: Literal[
-        "any", "NN", "superglue", "superglue-fast", "NN-superpoint", "NN-ratio", "NN-mutual", "adalam"
+        "any",
+        "NN",
+        "superglue",
+        "superglue-fast",
+        "NN-superpoint",
+        "NN-ratio",
+        "NN-mutual",
+        "adalam",
     ] = "any"
     """Matching algorithm."""
     num_downscales: int = 3
@@ -216,19 +259,33 @@ class ProcessVideo:
         image_dir.mkdir(parents=True, exist_ok=True)
 
         # Convert video to images
-        summary_log, num_extracted_frames = process_data_utils.convert_video_to_images(
-            self.data, image_dir=image_dir, num_frames_target=self.num_frames_target, verbose=self.verbose
+        (
+            summary_log,
+            num_extracted_frames,
+        ) = process_data_utils.convert_video_to_images(
+            self.data,
+            image_dir=image_dir,
+            num_frames_target=self.num_frames_target,
+            verbose=self.verbose,
         )
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         # Run Colmap
         colmap_dir = self.output_dir / "colmap"
         if not self.skip_colmap:
             colmap_dir.mkdir(parents=True, exist_ok=True)
 
-            (sfm_tool, feature_type, matcher_type) = process_data_utils.find_tool_feature_matcher_combination(
+            (
+                sfm_tool,
+                feature_type,
+                matcher_type,
+            ) = process_data_utils.find_tool_feature_matcher_combination(
                 self.sfm_tool, self.feature_type, self.matcher_type
             )
 
@@ -253,24 +310,39 @@ class ProcessVideo:
                     matcher_type=matcher_type,
                 )
             else:
-                CONSOLE.log("[bold red]Invalid combination of sfm_tool, feature_type, and matcher_type, exiting")
+                CONSOLE.log(
+                    "[bold red]Invalid combination of sfm_tool, feature_type, and matcher_type, exiting"
+                )
                 sys.exit(1)
 
         # Save transforms.json
         if (colmap_dir / "sparse" / "0" / "cameras.bin").exists():
-            with CONSOLE.status("[bold yellow]Saving results to transforms.json", spinner="balloon"):
+            with CONSOLE.status(
+                "[bold yellow]Saving results to transforms.json",
+                spinner="balloon",
+            ):
                 num_matched_frames = colmap_utils.colmap_to_json(
                     cameras_path=colmap_dir / "sparse" / "0" / "cameras.bin",
                     images_path=colmap_dir / "sparse" / "0" / "images.bin",
                     output_dir=self.output_dir,
                     camera_model=CAMERA_MODELS[self.camera_type],
                 )
-                summary_log.append(f"Colmap matched {num_matched_frames} images")
-            summary_log.append(colmap_utils.get_matching_summary(num_extracted_frames, num_matched_frames))
+                summary_log.append(
+                    f"Colmap matched {num_matched_frames} images"
+                )
+            summary_log.append(
+                colmap_utils.get_matching_summary(
+                    num_extracted_frames, num_matched_frames
+                )
+            )
         else:
-            CONSOLE.log("[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json")
+            CONSOLE.log(
+                "[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json"
+            )
 
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")
@@ -298,7 +370,9 @@ class ProcessInsta360:
     """Path to the output directory."""
     num_frames_target: int = 400
     """Target number of frames to use for the dataset, results may not be exact."""
-    matching_method: Literal["exhaustive", "sequential", "vocab_tree"] = "vocab_tree"
+    matching_method: Literal[
+        "exhaustive", "sequential", "vocab_tree"
+    ] = "vocab_tree"
     """Feature matching method to use. Vocab tree is recommended for a balance of speed and
         accuracy. Exhaustive is slower but more accurate. Sequential is faster but should only be used for videos."""
     num_downscales: int = 3
@@ -322,7 +396,9 @@ class ProcessInsta360:
         image_dir = self.output_dir / "images"
         image_dir.mkdir(parents=True, exist_ok=True)
 
-        filename_back, filename_front = insta360_utils.get_insta360_filenames(self.data)
+        filename_back, filename_front = insta360_utils.get_insta360_filenames(
+            self.data
+        )
 
         if not filename_back.exists():
             raise FileNotFoundError(f"Could not find {filename_back}")
@@ -334,7 +410,10 @@ class ProcessInsta360:
         assert ffprobe_output is not None
         ffprobe_decoded = json.loads(ffprobe_output)
 
-        width, height = ffprobe_decoded["streams"][0]["width"], ffprobe_decoded["streams"][0]["height"]
+        width, height = (
+            ffprobe_decoded["streams"][0]["width"],
+            ffprobe_decoded["streams"][0]["height"],
+        )
 
         summary_log, num_extracted_frames = [], 0
 
@@ -342,7 +421,10 @@ class ProcessInsta360:
             if not filename_front.exists():
                 raise FileNotFoundError(f"Could not find {filename_front}")
             # Convert video to images
-            summary_log, num_extracted_frames = insta360_utils.convert_insta360_to_images(
+            (
+                summary_log,
+                num_extracted_frames,
+            ) = insta360_utils.convert_insta360_to_images(
                 video_front=filename_front,
                 video_back=filename_back,
                 image_dir=image_dir,
@@ -350,7 +432,10 @@ class ProcessInsta360:
                 verbose=self.verbose,
             )
         else:
-            summary_log, num_extracted_frames = insta360_utils.convert_insta360_single_file_to_images(
+            (
+                summary_log,
+                num_extracted_frames,
+            ) = insta360_utils.convert_insta360_single_file_to_images(
                 video=filename_back,
                 image_dir=image_dir,
                 num_frames_target=self.num_frames_target,
@@ -358,7 +443,11 @@ class ProcessInsta360:
             )
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         # Run Colmap
         colmap_dir = self.output_dir / "colmap"
@@ -377,19 +466,32 @@ class ProcessInsta360:
 
         # Save transforms.json
         if (colmap_dir / "sparse" / "0" / "cameras.bin").exists():
-            with CONSOLE.status("[bold yellow]Saving results to transforms.json", spinner="balloon"):
+            with CONSOLE.status(
+                "[bold yellow]Saving results to transforms.json",
+                spinner="balloon",
+            ):
                 num_matched_frames = colmap_utils.colmap_to_json(
                     cameras_path=colmap_dir / "sparse" / "0" / "cameras.bin",
                     images_path=colmap_dir / "sparse" / "0" / "images.bin",
                     output_dir=self.output_dir,
                     camera_model=CAMERA_MODELS["fisheye"],
                 )
-                summary_log.append(f"Colmap matched {num_matched_frames} images")
-            summary_log.append(colmap_utils.get_matching_summary(num_extracted_frames, num_matched_frames))
+                summary_log.append(
+                    f"Colmap matched {num_matched_frames} images"
+                )
+            summary_log.append(
+                colmap_utils.get_matching_summary(
+                    num_extracted_frames, num_matched_frames
+                )
+            )
         else:
-            CONSOLE.log("[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json")
+            CONSOLE.log(
+                "[bold yellow]Warning: could not find existing COLMAP results. Not generating transforms.json"
+            )
 
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")
@@ -432,29 +534,50 @@ class ProcessRecord3D:
         record3d_image_dir = self.data / "rgb"
 
         if not record3d_image_dir.exists():
-            raise ValueError(f"Image directory {record3d_image_dir} doesn't exist")
+            raise ValueError(
+                f"Image directory {record3d_image_dir} doesn't exist"
+            )
 
         record3d_image_filenames = []
         for f in record3d_image_dir.iterdir():
-            if f.stem.isdigit():  # removes possible duplicate images (for example, 123(3).jpg)
-                if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]:
+            if (
+                f.stem.isdigit()
+            ):  # removes possible duplicate images (for example, 123(3).jpg)
+                if f.suffix.lower() in [
+                    ".jpg",
+                    ".jpeg",
+                    ".png",
+                    ".tif",
+                    ".tiff",
+                ]:
                     record3d_image_filenames.append(f)
 
-        record3d_image_filenames = sorted(record3d_image_filenames, key=lambda fn: int(fn.stem))
+        record3d_image_filenames = sorted(
+            record3d_image_filenames, key=lambda fn: int(fn.stem)
+        )
         num_images = len(record3d_image_filenames)
         idx = np.arange(num_images)
         if self.max_dataset_size != -1 and num_images > self.max_dataset_size:
-            idx = np.round(np.linspace(0, num_images - 1, self.max_dataset_size)).astype(int)
+            idx = np.round(
+                np.linspace(0, num_images - 1, self.max_dataset_size)
+            ).astype(int)
 
-        record3d_image_filenames = list(np.array(record3d_image_filenames)[idx])
+        record3d_image_filenames = list(
+            np.array(record3d_image_filenames)[idx]
+        )
         # Copy images to output directory
         copied_image_paths = process_data_utils.copy_images_list(
             record3d_image_filenames, image_dir=image_dir, verbose=self.verbose
         )
         num_frames = len(copied_image_paths)
 
-        copied_image_paths = [Path("images/" + copied_image_path.name) for copied_image_path in copied_image_paths]
-        summary_log.append(f"Used {num_frames} images out of {num_images} total")
+        copied_image_paths = [
+            Path("images/" + copied_image_path.name)
+            for copied_image_path in copied_image_paths
+        ]
+        summary_log.append(
+            f"Used {num_frames} images out of {num_images} total"
+        )
         if self.max_dataset_size > 0:
             summary_log.append(
                 "To change the size of the dataset add the argument --max_dataset_size to larger than the "
@@ -462,11 +585,19 @@ class ProcessRecord3D:
             )
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         metadata_path = self.data / "metadata.json"
-        record3d_utils.record3d_to_json(copied_image_paths, metadata_path, self.output_dir, indices=idx)
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        record3d_utils.record3d_to_json(
+            copied_image_paths, metadata_path, self.output_dir, indices=idx
+        )
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")
@@ -522,7 +653,9 @@ class ProcessPolycam:
                 extracted_folder = zip_ref.namelist()[0].split("/")[0]
             self.data = self.output_dir / extracted_folder
 
-        if (self.data / "keyframes" / "corrected_images").exists() and not self.use_uncorrected_images:
+        if (
+            self.data / "keyframes" / "corrected_images"
+        ).exists() and not self.use_uncorrected_images:
             polycam_image_dir = self.data / "keyframes" / "corrected_images"
             polycam_cameras_dir = self.data / "keyframes" / "corrected_cameras"
         else:
@@ -530,10 +663,14 @@ class ProcessPolycam:
             polycam_cameras_dir = self.data / "keyframes" / "cameras"
             self.crop_border_pixels = 0
             if not self.use_uncorrected_images:
-                CONSOLE.print("[bold yellow]Corrected images not found, using raw images.")
+                CONSOLE.print(
+                    "[bold yellow]Corrected images not found, using raw images."
+                )
 
         if not polycam_image_dir.exists():
-            raise ValueError(f"Image directory {polycam_image_dir} doesn't exist")
+            raise ValueError(
+                f"Image directory {polycam_image_dir} doesn't exist"
+            )
 
         # Copy images to output directory
 
@@ -541,11 +678,15 @@ class ProcessPolycam:
         for f in polycam_image_dir.iterdir():
             if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]:
                 polycam_image_filenames.append(f)
-        polycam_image_filenames = sorted(polycam_image_filenames, key=lambda fn: int(fn.stem))
+        polycam_image_filenames = sorted(
+            polycam_image_filenames, key=lambda fn: int(fn.stem)
+        )
         num_images = len(polycam_image_filenames)
         idx = np.arange(num_images)
         if self.max_dataset_size != -1 and num_images > self.max_dataset_size:
-            idx = np.round(np.linspace(0, num_images - 1, self.max_dataset_size)).astype(int)
+            idx = np.round(
+                np.linspace(0, num_images - 1, self.max_dataset_size)
+            ).astype(int)
 
         polycam_image_filenames = list(np.array(polycam_image_filenames)[idx])
         # Copy images to output directory
@@ -557,10 +698,15 @@ class ProcessPolycam:
         )
         num_frames = len(copied_image_paths)
 
-        copied_image_paths = [Path("images/" + copied_image_path.name) for copied_image_path in copied_image_paths]
+        copied_image_paths = [
+            Path("images/" + copied_image_path.name)
+            for copied_image_path in copied_image_paths
+        ]
 
         if self.max_dataset_size > 0 and num_frames != num_images:
-            summary_log.append(f"Started with {num_frames} images out of {num_images} total")
+            summary_log.append(
+                f"Started with {num_frames} images out of {num_images} total"
+            )
             summary_log.append(
                 "To change the size of the dataset add the argument --max_dataset_size to larger than the "
                 f"current value ({self.max_dataset_size}), or -1 to use all images."
@@ -569,7 +715,11 @@ class ProcessPolycam:
             summary_log.append(f"Started with {num_frames} images")
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         # Save json
         if num_frames == 0:
@@ -585,7 +735,9 @@ class ProcessPolycam:
             )
         )
 
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")
@@ -643,7 +795,9 @@ class ProcessMetashape:
         num_images = len(image_filenames)
         idx = np.arange(num_images)
         if self.max_dataset_size != -1 and num_images > self.max_dataset_size:
-            idx = np.round(np.linspace(0, num_images - 1, self.max_dataset_size)).astype(int)
+            idx = np.round(
+                np.linspace(0, num_images - 1, self.max_dataset_size)
+            ).astype(int)
 
         image_filenames = list(np.array(image_filenames)[idx])
         # Copy images to output directory
@@ -654,12 +808,17 @@ class ProcessMetashape:
         )
         num_frames = len(copied_image_paths)
 
-        copied_image_paths = [Path("images/" + copied_image_path.name) for copied_image_path in copied_image_paths]
+        copied_image_paths = [
+            Path("images/" + copied_image_path.name)
+            for copied_image_path in copied_image_paths
+        ]
         original_names = [image_path.stem for image_path in image_filenames]
         image_filename_map = dict(zip(original_names, copied_image_paths))
 
         if self.max_dataset_size > 0 and num_frames != num_images:
-            summary_log.append(f"Started with {num_frames} images out of {num_images} total")
+            summary_log.append(
+                f"Started with {num_frames} images out of {num_images} total"
+            )
             summary_log.append(
                 "To change the size of the dataset add the argument --max_dataset_size to larger than the "
                 f"current value ({self.max_dataset_size}), or -1 to use all images."
@@ -668,7 +827,11 @@ class ProcessMetashape:
             summary_log.append(f"Started with {num_frames} images")
 
         # Downscale images
-        summary_log.append(process_data_utils.downscale_images(image_dir, self.num_downscales, verbose=self.verbose))
+        summary_log.append(
+            process_data_utils.downscale_images(
+                image_dir, self.num_downscales, verbose=self.verbose
+            )
+        )
 
         # Save json
         if num_frames == 0:
@@ -683,7 +846,9 @@ class ProcessMetashape:
             )
         )
 
-        CONSOLE.rule("[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:")
+        CONSOLE.rule(
+            "[bold green]:tada: :tada: :tada: All DONE :tada: :tada: :tada:"
+        )
 
         for summary in summary_log:
             CONSOLE.print(summary, justify="center")

@@ -54,7 +54,9 @@ class MLP(FieldComponent):
         self.num_layers = num_layers
         self.layer_width = layer_width
         self.skip_connections = skip_connections
-        self._skip_connections: Set[int] = set(skip_connections) if skip_connections else set()
+        self._skip_connections: Set[int] = (
+            set(skip_connections) if skip_connections else set()
+        )
         self.activation = activation
         self.out_activation = out_activation
         self.net = None
@@ -68,16 +70,26 @@ class MLP(FieldComponent):
         else:
             for i in range(self.num_layers - 1):
                 if i == 0:
-                    assert i not in self._skip_connections, "Skip connection at layer 0 doesn't make sense."
+                    assert (
+                        i not in self._skip_connections
+                    ), "Skip connection at layer 0 doesn't make sense."
                     layers.append(nn.Linear(self.in_dim, self.layer_width))
                 elif i in self._skip_connections:
-                    layers.append(nn.Linear(self.layer_width + self.in_dim, self.layer_width))
+                    layers.append(
+                        nn.Linear(
+                            self.layer_width + self.in_dim, self.layer_width
+                        )
+                    )
                 else:
-                    layers.append(nn.Linear(self.layer_width, self.layer_width))
+                    layers.append(
+                        nn.Linear(self.layer_width, self.layer_width)
+                    )
             layers.append(nn.Linear(self.layer_width, self.out_dim))
         self.layers = nn.ModuleList(layers)
 
-    def forward(self, in_tensor: TensorType["bs":..., "in_dim"]) -> TensorType["bs":..., "out_dim"]:
+    def forward(
+        self, in_tensor: TensorType["bs":..., "in_dim"]
+    ) -> TensorType["bs":..., "out_dim"]:
         """Process input with a multilayer perceptron.
 
         Args:

@@ -23,7 +23,9 @@ def test_uniform_sampler():
     origins = torch.zeros((10, 3))
     directions = torch.ones_like(origins)
     radius = torch.ones((10, 1))
-    ray_bundle = RayBundle(origins=origins, directions=directions, pixel_area=radius)
+    ray_bundle = RayBundle(
+        origins=origins, directions=directions, pixel_area=radius
+    )
     collider = NearFarCollider(near_plane=2, far_plane=4)
     ray_bundle = collider(ray_bundle)
 
@@ -42,7 +44,9 @@ def test_lin_disp_sampler():
     origins = torch.zeros((10, 3))
     directions = torch.ones_like(origins)
     radius = torch.ones((10, 1))
-    ray_bundle = RayBundle(origins=origins, directions=directions, pixel_area=radius)
+    ray_bundle = RayBundle(
+        origins=origins, directions=directions, pixel_area=radius
+    )
     collider = NearFarCollider(near_plane=2, far_plane=4)
     ray_bundle = collider(ray_bundle)
 
@@ -59,7 +63,9 @@ def test_sqrt_sampler():
     origins = torch.zeros((10, 3))
     directions = torch.ones_like(origins)
     radius = torch.ones((10, 1))
-    ray_bundle = RayBundle(origins=origins, directions=directions, pixel_area=radius)
+    ray_bundle = RayBundle(
+        origins=origins, directions=directions, pixel_area=radius
+    )
     collider = NearFarCollider(near_plane=2, far_plane=4)
     ray_bundle = collider(ray_bundle)
 
@@ -76,7 +82,9 @@ def test_log_sampler():
     origins = torch.zeros((10, 3))
     directions = torch.ones_like(origins)
     radius = torch.ones((10, 1))
-    ray_bundle = RayBundle(origins=origins, directions=directions, pixel_area=radius)
+    ray_bundle = RayBundle(
+        origins=origins, directions=directions, pixel_area=radius
+    )
     collider = NearFarCollider(near_plane=2, far_plane=4)
     ray_bundle = collider(ray_bundle)
 
@@ -92,7 +100,9 @@ def test_pdf_sampler():
     origins = torch.zeros((10, 3))
     directions = torch.ones_like(origins)
     radius = torch.ones((10, 1))
-    ray_bundle = RayBundle(origins=origins, directions=directions, pixel_area=radius)
+    ray_bundle = RayBundle(
+        origins=origins, directions=directions, pixel_area=radius
+    )
     collider = NearFarCollider(near_plane=2, far_plane=4)
     ray_bundle = collider(ray_bundle)
 

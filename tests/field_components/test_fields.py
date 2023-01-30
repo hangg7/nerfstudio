@@ -20,12 +20,18 @@ def test_tcnn_instant_ngp_field():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     aabb_scale = 1.0
     aabb = torch.tensor(
-        [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]], dtype=torch.float32
+        [
+            [-aabb_scale, -aabb_scale, -aabb_scale],
+            [aabb_scale, aabb_scale, aabb_scale],
+        ],
+        dtype=torch.float32,
     ).to(device)
     field = TCNNInstantNGPField(aabb)
     num_rays = 1024
     num_samples = 256
-    positions = torch.rand((num_rays, num_samples, 3), dtype=torch.float32, device=device)
+    positions = torch.rand(
+        (num_rays, num_samples, 3), dtype=torch.float32, device=device
+    )
     directions = torch.rand_like(positions)
     frustums = Frustums(
         origins=positions,

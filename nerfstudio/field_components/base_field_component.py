@@ -30,7 +30,9 @@ class FieldComponent(nn.Module):
         out_dim: Ouput dimension to module.
     """
 
-    def __init__(self, in_dim: Optional[int] = None, out_dim: Optional[int] = None) -> None:
+    def __init__(
+        self, in_dim: Optional[int] = None, out_dim: Optional[int] = None
+    ) -> None:
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -56,7 +58,9 @@ class FieldComponent(nn.Module):
         return self.out_dim
 
     @abstractmethod
-    def forward(self, in_tensor: TensorType["bs":..., "input_dim"]) -> TensorType["bs":..., "output_dim"]:
+    def forward(
+        self, in_tensor: TensorType["bs":..., "input_dim"]
+    ) -> TensorType["bs":..., "output_dim"]:
         """
         Returns processed tensor
 

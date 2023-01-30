@@ -55,7 +55,15 @@ class ExponentialDecaySchedule(lr_scheduler.LambdaLR):
 
     config: SchedulerConfig
 
-    def __init__(self, optimizer, lr_init, lr_final, max_steps, lr_delay_steps=0, lr_delay_mult=1.0) -> None:
+    def __init__(
+        self,
+        optimizer,
+        lr_init,
+        lr_final,
+        max_steps,
+        lr_delay_steps=0,
+        lr_delay_mult=1.0,
+    ) -> None:
         def func(step):
             if lr_delay_steps > 0:
                 delay_rate = lr_delay_mult + (1 - lr_delay_mult) * np.sin(
@@ -113,4 +121,11 @@ class DelayedExponentialScheduler(DelayerScheduler):
             lr_final,
             max_steps,
         )
-        super().__init__(optimizer, lr_init, lr_final, max_steps, delay_epochs, after_scheduler=after_scheduler)
+        super().__init__(
+            optimizer,
+            lr_init,
+            lr_final,
+            max_steps,
+            delay_epochs,
+            after_scheduler=after_scheduler,
+        )

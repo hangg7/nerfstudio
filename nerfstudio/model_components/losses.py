@@ -49,11 +49,20 @@ def outer(
         t1_ends: end of the interval edges
         y1: weights
     """
-    cy1 = torch.cat([torch.zeros_like(y1[..., :1]), torch.cumsum(y1, dim=-1)], dim=-1)
+    cy1 = torch.cat(
+        [torch.zeros_like(y1[..., :1]), torch.cumsum(y1, dim=-1)], dim=-1
+    )
 
-    idx_lo = torch.searchsorted(t1_starts.contiguous(), t0_starts.contiguous(), side="right") - 1
+    idx_lo = (
+        torch.searchsorted(
+            t1_starts.contiguous(), t0_starts.contiguous(), side="right"
+        )
+        - 1
+    )
     idx_lo = torch.clamp(idx_lo, min=0, max=y1.shape[-1] - 1)
-    idx_hi = torch.searchsorted(t1_ends.contiguous(), t0_ends.contiguous(), side="right")
+    idx_hi = torch.searchsorted(
+        t1_ends.contiguous(), t0_ends.contiguous(), side="right"
+    )
     idx_hi = torch.clamp(idx_hi, min=0, max=y1.shape[-1] - 1)
     cy1_lo = torch.take_along_dim(cy1[..., :-1], idx_lo, dim=-1)
     cy1_hi = torch.take_along_dim(cy1[..., 1:], idx_hi, dim=-1)
@@ -78,7 +87,9 @@ def lossfun_outer(
         t_env: interval edges of the upper bound enveloping historgram
         w_env: weights that should upper bound the inner (t,w) histogram
     """
-    w_outer = outer(t[..., :-1], t[..., 1:], t_env[..., :-1], t_env[..., 1:], w_env)
+    w_outer = outer(
+        t[..., :-1], t[..., 1:], t_env[..., :-1], t_env[..., 1:], w_env
+    )
     return torch.clip(w - w_outer, min=0) ** 2 / (w + EPS)
 
 
@@ -86,7 +97,9 @@ def ray_samples_to_sdist(ray_samples):
     """Convert ray samples to s space"""
     starts = ray_samples.spacing_starts
     ends = ray_samples.spacing_ends
-    sdist = torch.cat([starts[..., 0], ends[..., -1:, 0]], dim=-1)  # (num_rays, num_samples + 1)
+    sdist = torch.cat(
+        [starts[..., 0], ends[..., -1:, 0]], dim=-1
+    )  # (num_rays, num_samples + 1)
     return sdist
 
 
@@ -115,7 +128,9 @@ def lossfun_distortion(t, w):
     """
     ut = (t[..., 1:] + t[..., :-1]) / 2
     dut = torch.abs(ut[..., :, None] - ut[..., None, :])
-    loss_inter = torch.sum(w * torch.sum(w[..., None, :] * dut, dim=-1), dim=-1)
+    loss_inter = torch.sum(
+        w * torch.sum(w[..., None, :] * dut, dim=-1), dim=-1
+    )
 
     loss_intra = torch.sum(w**2 * (t[..., 1:] - t[..., :-1]), dim=-1) / 3
 
@@ -151,20 +166,28 @@ def nerfstudio_distortion_loss(
         weights: Predicted weights from densities and sample locations
     """
     if torch.is_tensor(densities):
-        assert not torch.is_tensor(weights), "Cannot use both densities and weights"
+        assert not torch.is_tensor(
+            weights
+        ), "Cannot use both densities and weights"
         # Compute the weight at each sample location
         weights = ray_samples.get_weights(densities)
     if torch.is_tensor(weights):
-        assert not torch.is_tensor(densities), "Cannot use both densities and weights"
+        assert not torch.is_tensor(
+            densities
+        ), "Cannot use both densities and weights"
 
     starts = ray_samples.spacing_starts
     ends = ray_samples.spacing_ends
 
-    assert starts is not None and ends is not None, "Ray samples must have spacing starts and ends"
+    assert (
+        starts is not None and ends is not None
+    ), "Ray samples must have spacing starts and ends"
     midpoints = (starts + ends) / 2.0  # (..., num_samples, 1)
 
     loss = (
-        weights * weights[..., None, :, 0] * torch.abs(midpoints - midpoints[..., None, :, 0])
+        weights
+        * weights[..., None, :, 0]
+        * torch.abs(midpoints - midpoints[..., None, :, 0])
     )  # (..., num_samples, num_samples)
     loss = torch.sum(loss, dim=(-1, -2))[..., None]  # (..., num_samples)
     loss = loss + 1 / 3.0 * torch.sum(weights**2 * (ends - starts), dim=-2)
@@ -184,7 +207,9 @@ def orientation_loss(
     n = normals
     v = viewdirs
     n_dot_v = (n * v[..., None, :]).sum(axis=-1)
-    return (w[..., 0] * torch.fmin(torch.zeros_like(n_dot_v), n_dot_v) ** 2).sum(dim=-1)
+    return (
+        w[..., 0] * torch.fmin(torch.zeros_like(n_dot_v), n_dot_v) ** 2
+    ).sum(dim=-1)
 
 
 def pred_normal_loss(
@@ -193,4 +218,6 @@ def pred_normal_loss(
     pred_normals: TensorType["bs":..., "num_samples", 3],
 ):
     """Loss between normals calculated from density and normals from prediction network."""
-    return (weights[..., 0] * (1.0 - torch.sum(normals * pred_normals, dim=-1))).sum(dim=-1)
+    return (
+        weights[..., 0] * (1.0 - torch.sum(normals * pred_normals, dim=-1))
+    ).sum(dim=-1)

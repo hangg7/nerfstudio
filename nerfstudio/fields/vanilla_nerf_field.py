@@ -77,13 +77,16 @@ class NeRFField(Field):
         )
 
         self.mlp_head = MLP(
-            in_dim=self.mlp_base.get_out_dim() + self.direction_encoding.get_out_dim(),
+            in_dim=self.mlp_base.get_out_dim()
+            + self.direction_encoding.get_out_dim(),
             num_layers=head_mlp_num_layers,
             layer_width=head_mlp_layer_width,
             out_activation=nn.ReLU(),
         )
 
-        self.field_output_density = DensityFieldHead(in_dim=self.mlp_base.get_out_dim())
+        self.field_output_density = DensityFieldHead(
+            in_dim=self.mlp_base.get_out_dim()
+        )
         self.field_heads = nn.ModuleList(field_heads)
         for field_head in self.field_heads:
             field_head.set_in_dim(self.mlp_head.get_out_dim())  # type: ignore
@@ -93,7 +96,9 @@ class NeRFField(Field):
             gaussian_samples = ray_samples.frustums.get_gaussian_blob()
             if self.spatial_distortion is not None:
                 gaussian_samples = self.spatial_distortion(gaussian_samples)
-            encoded_xyz = self.position_encoding(gaussian_samples.mean, covs=gaussian_samples.cov)
+            encoded_xyz = self.position_encoding(
+                gaussian_samples.mean, covs=gaussian_samples.cov
+            )
         else:
             positions = ray_samples.frustums.get_positions()
             if self.spatial_distortion is not None:
@@ -104,11 +109,15 @@ class NeRFField(Field):
         return density, base_mlp_out
 
     def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
     ) -> Dict[FieldHeadNames, TensorType]:
         outputs = {}
         for field_head in self.field_heads:
-            encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
+            encoded_dir = self.direction_encoding(
+                ray_samples.frustums.directions
+            )
             mlp_out = self.mlp_head(torch.cat([encoded_dir, density_embedding], dim=-1))  # type: ignore
             outputs[field_head.field_head_name] = field_head(mlp_out)
         return outputs

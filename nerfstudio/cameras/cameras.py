@@ -95,7 +95,9 @@ class Cameras(TensorDataclass):
         cy: Union[TensorType["batch_cys":..., 1], float],
         width: Optional[Union[TensorType["batch_ws":..., 1], int]] = None,
         height: Optional[Union[TensorType["batch_hs":..., 1], int]] = None,
-        distortion_params: Optional[TensorType["batch_dist_params":..., 6]] = None,
+        distortion_params: Optional[
+            TensorType["batch_dist_params":..., 6]
+        ] = None,
         camera_type: Optional[
             Union[
                 TensorType["batch_cam_types":..., 1],
@@ -124,12 +126,20 @@ class Cameras(TensorDataclass):
         self.camera_to_worlds = camera_to_worlds
 
         # fx fy calculation
-        self.fx = self._init_get_fc_xy(fx, "fx")  # @dataclass's post_init will take care of broadcasting
-        self.fy = self._init_get_fc_xy(fy, "fy")  # @dataclass's post_init will take care of broadcasting
+        self.fx = self._init_get_fc_xy(
+            fx, "fx"
+        )  # @dataclass's post_init will take care of broadcasting
+        self.fy = self._init_get_fc_xy(
+            fy, "fy"
+        )  # @dataclass's post_init will take care of broadcasting
 
         # cx cy calculation
-        self.cx = self._init_get_fc_xy(cx, "cx")  # @dataclass's post_init will take care of broadcasting
-        self.cy = self._init_get_fc_xy(cy, "cy")  # @dataclass's post_init will take care of broadcasting
+        self.cx = self._init_get_fc_xy(
+            cx, "cx"
+        )  # @dataclass's post_init will take care of broadcasting
+        self.cy = self._init_get_fc_xy(
+            cy, "cy"
+        )  # @dataclass's post_init will take care of broadcasting
 
         # Distortion Params Calculation:
         self.distortion_params = distortion_params  # @dataclass's post_init will take care of broadcasting
@@ -160,13 +170,19 @@ class Cameras(TensorDataclass):
                 fc_xy = fc_xy.unsqueeze(-1)
             fc_xy = fc_xy.to(self.device)
         else:
-            raise ValueError(f"{name} must be a float or tensor, got {type(fc_xy)}")
+            raise ValueError(
+                f"{name} must be a float or tensor, got {type(fc_xy)}"
+            )
         return fc_xy
 
     def _init_get_camera_type(
         self,
         camera_type: Union[
-            TensorType["batch_cam_types":..., 1], TensorType["batch_cam_types":...], int, List[CameraType], CameraType
+            TensorType["batch_cam_types":..., 1],
+            TensorType["batch_cam_types":...],
+            int,
+            List[CameraType],
+            CameraType,
         ],
     ) -> TensorType["num_cameras":..., 1]:
         """
@@ -183,8 +199,12 @@ class Cameras(TensorDataclass):
         """
         if isinstance(camera_type, CameraType):
             camera_type = torch.tensor([camera_type.value], device=self.device)
-        elif isinstance(camera_type, List) and isinstance(camera_type[0], CameraType):
-            camera_type = torch.tensor([[c.value] for c in camera_type], device=self.device)
+        elif isinstance(camera_type, List) and isinstance(
+            camera_type[0], CameraType
+        ):
+            camera_type = torch.tensor(
+                [[c.value] for c in camera_type], device=self.device
+            )
         elif isinstance(camera_type, int):
             camera_type = torch.tensor([camera_type], device=self.device)
         elif isinstance(camera_type, torch.Tensor):
@@ -207,7 +227,12 @@ class Cameras(TensorDataclass):
 
     def _init_get_height_width(
         self,
-        h_w: Union[TensorType["batch_hws":..., 1], TensorType["batch_hws":...], int, None],
+        h_w: Union[
+            TensorType["batch_hws":..., 1],
+            TensorType["batch_hws":...],
+            int,
+            None,
+        ],
         c_x_y: TensorType["batch_cxys":...],
     ) -> TensorType["num_cameras":..., 1]:
         """
@@ -226,7 +251,9 @@ class Cameras(TensorDataclass):
         if isinstance(h_w, int):
             h_w = torch.Tensor([h_w]).to(torch.int64).to(self.device)
         elif isinstance(h_w, torch.Tensor):
-            assert not torch.is_floating_point(h_w), f"height and width tensor must be of type int, not: {h_w.dtype}"
+            assert not torch.is_floating_point(
+                h_w
+            ), f"height and width tensor must be of type int, not: {h_w.dtype}"
             h_w = h_w.to(torch.int64).to(self.device)
             if h_w.ndim == 0 or h_w.shape[-1] != 1:
                 h_w = h_w.unsqueeze(-1)
@@ -234,7 +261,10 @@ class Cameras(TensorDataclass):
         elif h_w is None:
             h_w = torch.Tensor((c_x_y * 2).to(torch.int64).to(self.device))
         else:
-            raise ValueError("Height must be an int, tensor, or None, received: " + str(type(h_w)))
+            raise ValueError(
+                "Height must be an int, tensor, or None, received: "
+                + str(type(h_w))
+            )
         return h_w
 
     def _init_get_times(self, times):
@@ -244,7 +274,9 @@ class Cameras(TensorDataclass):
             if times.ndim == 0 or times.shape[-1] != 1:
                 times = times.unsqueeze(-1).to(self.device)
         else:
-            raise ValueError(f"times must be None or a tensor, got {type(times)}")
+            raise ValueError(
+                f"times must be None or a tensor, got {type(times)}"
+            )
 
         return times
 
@@ -292,21 +324,39 @@ class Cameras(TensorDataclass):
         if index is None:
             image_height = torch.max(self.image_height.view(-1))
             image_width = torch.max(self.image_width.view(-1))
-            image_coords = torch.meshgrid(torch.arange(image_height), torch.arange(image_width), indexing="ij")
-            image_coords = torch.stack(image_coords, dim=-1) + pixel_offset  # stored as (y, x) coordinates
+            image_coords = torch.meshgrid(
+                torch.arange(image_height),
+                torch.arange(image_width),
+                indexing="ij",
+            )
+            image_coords = (
+                torch.stack(image_coords, dim=-1) + pixel_offset
+            )  # stored as (y, x) coordinates
         else:
             image_height = self.image_height[index].item()
             image_width = self.image_width[index].item()
-            image_coords = torch.meshgrid(torch.arange(image_height), torch.arange(image_width), indexing="ij")
-            image_coords = torch.stack(image_coords, dim=-1) + pixel_offset  # stored as (y, x) coordinates
+            image_coords = torch.meshgrid(
+                torch.arange(image_height),
+                torch.arange(image_width),
+                indexing="ij",
+            )
+            image_coords = (
+                torch.stack(image_coords, dim=-1) + pixel_offset
+            )  # stored as (y, x) coordinates
         return image_coords
 
     def generate_rays(  # pylint: disable=too-many-statements
         self,
-        camera_indices: Union[TensorType["num_rays":..., "num_cameras_batch_dims"], int],
+        camera_indices: Union[
+            TensorType["num_rays":..., "num_cameras_batch_dims"], int
+        ],
         coords: Optional[TensorType["num_rays":..., 2]] = None,
-        camera_opt_to_camera: Optional[TensorType["num_rays":..., 3, 4]] = None,
-        distortion_params_delta: Optional[TensorType["num_rays":..., 6]] = None,
+        camera_opt_to_camera: Optional[
+            TensorType["num_rays":..., 3, 4]
+        ] = None,
+        distortion_params_delta: Optional[
+            TensorType["num_rays":..., 6]
+        ] = None,
         keep_shape: Optional[bool] = None,
         disable_distortion: bool = False,
     ) -> RayBundle:
@@ -356,22 +406,42 @@ class Cameras(TensorDataclass):
             Rays for the given camera indices and coords.
         """
         # Check the argument types to make sure they're valid and all shaped correctly
-        assert isinstance(camera_indices, (torch.Tensor, int)), "camera_indices must be a tensor or int"
-        assert coords is None or isinstance(coords, torch.Tensor), "coords must be a tensor or None"
-        assert camera_opt_to_camera is None or isinstance(camera_opt_to_camera, torch.Tensor)
-        assert distortion_params_delta is None or isinstance(distortion_params_delta, torch.Tensor)
-        if isinstance(camera_indices, torch.Tensor) and isinstance(coords, torch.Tensor):
+        assert isinstance(
+            camera_indices, (torch.Tensor, int)
+        ), "camera_indices must be a tensor or int"
+        assert coords is None or isinstance(
+            coords, torch.Tensor
+        ), "coords must be a tensor or None"
+        assert camera_opt_to_camera is None or isinstance(
+            camera_opt_to_camera, torch.Tensor
+        )
+        assert distortion_params_delta is None or isinstance(
+            distortion_params_delta, torch.Tensor
+        )
+        if isinstance(camera_indices, torch.Tensor) and isinstance(
+            coords, torch.Tensor
+        ):
             num_rays_shape = camera_indices.shape[:-1]
-            errormsg = "Batch dims of inputs must match when inputs are all tensors"
+            errormsg = (
+                "Batch dims of inputs must match when inputs are all tensors"
+            )
             assert coords.shape[:-1] == num_rays_shape, errormsg
-            assert camera_opt_to_camera is None or camera_opt_to_camera.shape[:-2] == num_rays_shape, errormsg
-            assert distortion_params_delta is None or distortion_params_delta.shape[:-1] == num_rays_shape, errormsg
+            assert (
+                camera_opt_to_camera is None
+                or camera_opt_to_camera.shape[:-2] == num_rays_shape
+            ), errormsg
+            assert (
+                distortion_params_delta is None
+                or distortion_params_delta.shape[:-1] == num_rays_shape
+            ), errormsg
 
         # If zero dimensional, we need to unsqueeze to get a batch dimension and then squeeze later
         if not self.shape:
             cameras = self.reshape((1,))
             assert torch.all(
-                torch.tensor(camera_indices == 0) if isinstance(camera_indices, int) else camera_indices == 0
+                torch.tensor(camera_indices == 0)
+                if isinstance(camera_indices, int)
+                else camera_indices == 0
             ), "Can only index into single camera with no batch dimensions if index is zero"
         else:
             cameras = self
@@ -381,7 +451,9 @@ class Cameras(TensorDataclass):
             assert (
                 len(cameras.shape) == 1
             ), "camera_indices must be a tensor if cameras are batched with more than 1 batch dimension"
-            camera_indices = torch.tensor([camera_indices], device=cameras.device)
+            camera_indices = torch.tensor(
+                [camera_indices], device=cameras.device
+            )
 
         assert camera_indices.shape[-1] == len(
             cameras.shape
@@ -391,19 +463,33 @@ class Cameras(TensorDataclass):
         # are all the same height and width and can actually be batched while maintaining the image
         # shape
         if keep_shape is True:
-            assert torch.all(cameras.height[camera_indices] == cameras.height[camera_indices[0]]) and torch.all(
-                cameras.width[camera_indices] == cameras.width[camera_indices[0]]
+            assert torch.all(
+                cameras.height[camera_indices]
+                == cameras.height[camera_indices[0]]
+            ) and torch.all(
+                cameras.width[camera_indices]
+                == cameras.width[camera_indices[0]]
             ), "Can only keep shape if all cameras have the same height and width"
 
         # If the cameras don't all have same height / width, if coords is not none, we will need to generate
         # a flat list of coords for each camera and then concatenate otherwise our rays will be jagged.
         # Camera indices, camera_opt, and distortion will also need to be broadcasted accordingly which is non-trivial
-        if cameras.is_jagged and coords is None and (keep_shape is None or keep_shape is False):
+        if (
+            cameras.is_jagged
+            and coords is None
+            and (keep_shape is None or keep_shape is False)
+        ):
             index_dim = camera_indices.shape[-1]
             camera_indices = camera_indices.reshape(-1, index_dim)
-            _coords = [cameras.get_image_coords(index=tuple(index)).reshape(-1, 2) for index in camera_indices]
+            _coords = [
+                cameras.get_image_coords(index=tuple(index)).reshape(-1, 2)
+                for index in camera_indices
+            ]
             camera_indices = torch.cat(
-                [index.unsqueeze(0).repeat(coords.shape[0], 1) for index, coords in zip(camera_indices, _coords)],
+                [
+                    index.unsqueeze(0).repeat(coords.shape[0], 1)
+                    for index, coords in zip(camera_indices, _coords)
+                ],
             )
             coords = torch.cat(_coords, dim=0)
             assert coords.shape[0] == camera_indices.shape[0]
@@ -416,9 +502,15 @@ class Cameras(TensorDataclass):
         if coords is None:
             index_dim = camera_indices.shape[-1]
             index = camera_indices.reshape(-1, index_dim)[0]
-            coords: torch.Tensor = cameras.get_image_coords(index=tuple(index))  # (h, w, 2)
-            coords = coords.reshape(coords.shape[:2] + (1,) * len(camera_indices.shape[:-1]) + (2,))  # (h, w, 1..., 2)
-            coords = coords.expand(coords.shape[:2] + camera_indices.shape[:-1] + (2,))  # (h, w, num_rays, 2)
+            coords: torch.Tensor = cameras.get_image_coords(
+                index=tuple(index)
+            )  # (h, w, 2)
+            coords = coords.reshape(
+                coords.shape[:2] + (1,) * len(camera_indices.shape[:-1]) + (2,)
+            )  # (h, w, 1..., 2)
+            coords = coords.expand(
+                coords.shape[:2] + camera_indices.shape[:-1] + (2,)
+            )  # (h, w, num_rays, 2)
             camera_opt_to_camera = (  # (h, w, num_rays, 3, 4) or None
                 camera_opt_to_camera.broadcast_to(coords.shape[:-1] + (3, 4))
                 if camera_opt_to_camera is not None
@@ -431,19 +523,33 @@ class Cameras(TensorDataclass):
             )
 
         # If camera indices was an int or coords was none, we need to broadcast our indices along batch dims
-        camera_indices = camera_indices.broadcast_to(coords.shape[:-1] + (len(cameras.shape),)).to(torch.long)
+        camera_indices = camera_indices.broadcast_to(
+            coords.shape[:-1] + (len(cameras.shape),)
+        ).to(torch.long)
 
         # Checking our tensors have been standardized
-        assert isinstance(coords, torch.Tensor) and isinstance(camera_indices, torch.Tensor)
+        assert isinstance(coords, torch.Tensor) and isinstance(
+            camera_indices, torch.Tensor
+        )
         assert camera_indices.shape[-1] == len(cameras.shape)
-        assert camera_opt_to_camera is None or camera_opt_to_camera.shape[:-2] == coords.shape[:-1]
-        assert distortion_params_delta is None or distortion_params_delta.shape[:-1] == coords.shape[:-1]
+        assert (
+            camera_opt_to_camera is None
+            or camera_opt_to_camera.shape[:-2] == coords.shape[:-1]
+        )
+        assert (
+            distortion_params_delta is None
+            or distortion_params_delta.shape[:-1] == coords.shape[:-1]
+        )
 
         # This will do the actual work of generating the rays now that we have standardized the inputs
         # raybundle.shape == (num_rays) when done
         # pylint: disable=protected-access
         raybundle = cameras._generate_rays_from_coords(
-            camera_indices, coords, camera_opt_to_camera, distortion_params_delta, disable_distortion=disable_distortion
+            camera_indices,
+            coords,
+            camera_opt_to_camera,
+            distortion_params_delta,
+            disable_distortion=disable_distortion,
         )
 
         # If we have mandated that we don't keep the shape, then we flatten
@@ -460,8 +566,12 @@ class Cameras(TensorDataclass):
         self,
         camera_indices: TensorType["num_rays":..., "num_cameras_batch_dims"],
         coords: TensorType["num_rays":..., 2],
-        camera_opt_to_camera: Optional[TensorType["num_rays":..., 3, 4]] = None,
-        distortion_params_delta: Optional[TensorType["num_rays":..., 6]] = None,
+        camera_opt_to_camera: Optional[
+            TensorType["num_rays":..., 3, 4]
+        ] = None,
+        distortion_params_delta: Optional[
+            TensorType["num_rays":..., 6]
+        ] = None,
         disable_distortion: bool = False,
     ) -> RayBundle:
         """Generates rays for the given camera indices and coords where self isn't jagged
@@ -542,18 +652,34 @@ class Cameras(TensorDataclass):
         assert camera_indices.shape == num_rays_shape + (self.ndim,)
         assert coords.shape == num_rays_shape + (2,)
         assert coords.shape[-1] == 2
-        assert camera_opt_to_camera is None or camera_opt_to_camera.shape == num_rays_shape + (3, 4)
-        assert distortion_params_delta is None or distortion_params_delta.shape == num_rays_shape + (6,)
+        assert (
+            camera_opt_to_camera is None
+            or camera_opt_to_camera.shape == num_rays_shape + (3, 4)
+        )
+        assert (
+            distortion_params_delta is None
+            or distortion_params_delta.shape == num_rays_shape + (6,)
+        )
 
         # Here, we've broken our indices down along the num_cameras_batch_dims dimension allowing us to index by all
         # of our output rays at each dimension of our cameras object
-        true_indices = [camera_indices[..., i] for i in range(camera_indices.shape[-1])]
+        true_indices = [
+            camera_indices[..., i] for i in range(camera_indices.shape[-1])
+        ]
 
         # Get all our focal lengths, principal points and make sure they are the right shapes
         y = coords[..., 0]  # (num_rays,) get rid of the last dimension
         x = coords[..., 1]  # (num_rays,) get rid of the last dimension
-        fx, fy = self.fx[true_indices].squeeze(-1), self.fy[true_indices].squeeze(-1)  # (num_rays,)
-        cx, cy = self.cx[true_indices].squeeze(-1), self.cy[true_indices].squeeze(-1)  # (num_rays,)
+        fx, fy = self.fx[true_indices].squeeze(-1), self.fy[
+            true_indices
+        ].squeeze(
+            -1
+        )  # (num_rays,)
+        cx, cy = self.cx[true_indices].squeeze(-1), self.cy[
+            true_indices
+        ].squeeze(
+            -1
+        )  # (num_rays,)
         assert (
             y.shape == num_rays_shape
             and x.shape == num_rays_shape
@@ -573,9 +699,15 @@ class Cameras(TensorDataclass):
 
         # Get our image coordinates and image coordinates offset by 1 (offsets used for dx, dy calculations)
         # Also make sure the shapes are correct
-        coord = torch.stack([(x - cx) / fx, -(y - cy) / fy], -1)  # (num_rays, 2)
-        coord_x_offset = torch.stack([(x - cx + 1) / fx, -(y - cy) / fy], -1)  # (num_rays, 2)
-        coord_y_offset = torch.stack([(x - cx) / fx, -(y - cy + 1) / fy], -1)  # (num_rays, 2)
+        coord = torch.stack(
+            [(x - cx) / fx, -(y - cy) / fy], -1
+        )  # (num_rays, 2)
+        coord_x_offset = torch.stack(
+            [(x - cx + 1) / fx, -(y - cy) / fy], -1
+        )  # (num_rays, 2)
+        coord_y_offset = torch.stack(
+            [(x - cx) / fx, -(y - cy + 1) / fy], -1
+        )  # (num_rays, 2)
         assert (
             coord.shape == num_rays_shape + (2,)
             and coord_x_offset.shape == num_rays_shape + (2,)
@@ -583,7 +715,9 @@ class Cameras(TensorDataclass):
         )
 
         # Stack image coordinates and image coordinates offset by 1, check shapes too
-        coord_stack = torch.stack([coord, coord_x_offset, coord_y_offset], dim=0)  # (3, num_rays, 2)
+        coord_stack = torch.stack(
+            [coord, coord_x_offset, coord_y_offset], dim=0
+        )  # (3, num_rays, 2)
         assert coord_stack.shape == (3,) + num_rays_shape + (2,)
 
         # Undistorts our images according to our distortion parameters
@@ -592,19 +726,30 @@ class Cameras(TensorDataclass):
             if self.distortion_params is not None:
                 distortion_params = self.distortion_params[true_indices]
                 if distortion_params_delta is not None:
-                    distortion_params = distortion_params + distortion_params_delta
+                    distortion_params = (
+                        distortion_params + distortion_params_delta
+                    )
             elif distortion_params_delta is not None:
                 distortion_params = distortion_params_delta
 
             # Do not apply distortion for equirectangular images
             if distortion_params is not None:
-                mask = (self.camera_type[true_indices] != CameraType.EQUIRECTANGULAR.value).squeeze(-1)  # (num_rays)
+                mask = (
+                    self.camera_type[true_indices]
+                    != CameraType.EQUIRECTANGULAR.value
+                ).squeeze(
+                    -1
+                )  # (num_rays)
                 coord_mask = torch.stack([mask, mask, mask], dim=0)
                 if mask.any():
-                    coord_stack[coord_mask, :] = camera_utils.radial_and_tangential_undistort(
+                    coord_stack[
+                        coord_mask, :
+                    ] = camera_utils.radial_and_tangential_undistort(
                         coord_stack[coord_mask, :].reshape(3, -1, 2),
                         distortion_params[mask, :],
-                    ).reshape(-1, 2)
+                    ).reshape(
+                        -1, 2
+                    )
 
         # Make sure after we have undistorted our images, the shapes are still correct
         assert coord_stack.shape == (3,) + num_rays_shape + (2,)
@@ -615,16 +760,30 @@ class Cameras(TensorDataclass):
         # directions_stack[1] is the direction for ray in camera coordinates offset by 1 in x
         # directions_stack[2] is the direction for ray in camera coordinates offset by 1 in y
         cam_types = torch.unique(self.camera_type, sorted=False)
-        directions_stack = torch.empty((3,) + num_rays_shape + (3,), device=self.device)
+        directions_stack = torch.empty(
+            (3,) + num_rays_shape + (3,), device=self.device
+        )
         if CameraType.PERSPECTIVE.value in cam_types:
-            mask = (self.camera_type[true_indices] == CameraType.PERSPECTIVE.value).squeeze(-1)  # (num_rays)
+            mask = (
+                self.camera_type[true_indices] == CameraType.PERSPECTIVE.value
+            ).squeeze(
+                -1
+            )  # (num_rays)
             mask = torch.stack([mask, mask, mask], dim=0)
-            directions_stack[..., 0][mask] = torch.masked_select(coord_stack[..., 0], mask).float()
-            directions_stack[..., 1][mask] = torch.masked_select(coord_stack[..., 1], mask).float()
+            directions_stack[..., 0][mask] = torch.masked_select(
+                coord_stack[..., 0], mask
+            ).float()
+            directions_stack[..., 1][mask] = torch.masked_select(
+                coord_stack[..., 1], mask
+            ).float()
             directions_stack[..., 2][mask] = -1.0
 
         if CameraType.FISHEYE.value in cam_types:
-            mask = (self.camera_type[true_indices] == CameraType.FISHEYE.value).squeeze(-1)  # (num_rays)
+            mask = (
+                self.camera_type[true_indices] == CameraType.FISHEYE.value
+            ).squeeze(
+                -1
+            )  # (num_rays)
             mask = torch.stack([mask, mask, mask], dim=0)
 
             theta = torch.sqrt(torch.sum(coord_stack**2, dim=-1))
@@ -632,25 +791,48 @@ class Cameras(TensorDataclass):
 
             sin_theta = torch.sin(theta)
 
-            directions_stack[..., 0][mask] = torch.masked_select(coord_stack[..., 0] * sin_theta / theta, mask).float()
-            directions_stack[..., 1][mask] = torch.masked_select(coord_stack[..., 1] * sin_theta / theta, mask).float()
-            directions_stack[..., 2][mask] = -torch.masked_select(torch.cos(theta), mask)
+            directions_stack[..., 0][mask] = torch.masked_select(
+                coord_stack[..., 0] * sin_theta / theta, mask
+            ).float()
+            directions_stack[..., 1][mask] = torch.masked_select(
+                coord_stack[..., 1] * sin_theta / theta, mask
+            ).float()
+            directions_stack[..., 2][mask] = -torch.masked_select(
+                torch.cos(theta), mask
+            )
 
         if CameraType.EQUIRECTANGULAR.value in cam_types:
-            mask = (self.camera_type[true_indices] == CameraType.EQUIRECTANGULAR.value).squeeze(-1)  # (num_rays)
+            mask = (
+                self.camera_type[true_indices]
+                == CameraType.EQUIRECTANGULAR.value
+            ).squeeze(
+                -1
+            )  # (num_rays)
             mask = torch.stack([mask, mask, mask], dim=0)
 
             # For equirect, fx = fy = height = width/2
             # Then coord[..., 0] goes from -1 to 1 and coord[..., 1] goes from -1/2 to 1/2
-            theta = -torch.pi * coord_stack[..., 0]  # minus sign for right-handed
+            theta = (
+                -torch.pi * coord_stack[..., 0]
+            )  # minus sign for right-handed
             phi = torch.pi * (0.5 - coord_stack[..., 1])
             # use spherical in local camera coordinates (+y up, x=0 and z<0 is theta=0)
-            directions_stack[..., 0][mask] = torch.masked_select(-torch.sin(theta) * torch.sin(phi), mask).float()
-            directions_stack[..., 1][mask] = torch.masked_select(torch.cos(phi), mask).float()
-            directions_stack[..., 2][mask] = torch.masked_select(-torch.cos(theta) * torch.sin(phi), mask).float()
+            directions_stack[..., 0][mask] = torch.masked_select(
+                -torch.sin(theta) * torch.sin(phi), mask
+            ).float()
+            directions_stack[..., 1][mask] = torch.masked_select(
+                torch.cos(phi), mask
+            ).float()
+            directions_stack[..., 2][mask] = torch.masked_select(
+                -torch.cos(theta) * torch.sin(phi), mask
+            ).float()
 
         for value in cam_types:
-            if value not in [CameraType.PERSPECTIVE.value, CameraType.FISHEYE.value, CameraType.EQUIRECTANGULAR.value]:
+            if value not in [
+                CameraType.PERSPECTIVE.value,
+                CameraType.FISHEYE.value,
+                CameraType.EQUIRECTANGULAR.value,
+            ]:
                 raise ValueError(f"Camera type {value} not supported.")
 
         assert directions_stack.shape == (3,) + num_rays_shape + (3,)
@@ -676,14 +858,20 @@ class Cameras(TensorDataclass):
         assert directions.shape == num_rays_shape + (3,)
 
         # norms of the vector going between adjacent coords, giving us dx and dy per output ray
-        dx = torch.sqrt(torch.sum((directions - directions_stack[1]) ** 2, dim=-1))  # ("num_rays":...,)
-        dy = torch.sqrt(torch.sum((directions - directions_stack[2]) ** 2, dim=-1))  # ("num_rays":...,)
+        dx = torch.sqrt(
+            torch.sum((directions - directions_stack[1]) ** 2, dim=-1)
+        )  # ("num_rays":...,)
+        dy = torch.sqrt(
+            torch.sum((directions - directions_stack[2]) ** 2, dim=-1)
+        )  # ("num_rays":...,)
         assert dx.shape == num_rays_shape and dy.shape == num_rays_shape
 
         pixel_area = (dx * dy)[..., None]  # ("num_rays":..., 1)
         assert pixel_area.shape == num_rays_shape + (1,)
 
-        times = self.times[camera_indices, 0] if self.times is not None else None
+        times = (
+            self.times[camera_indices, 0] if self.times is not None else None
+        )
 
         return RayBundle(
             origins=origins,
@@ -694,7 +882,10 @@ class Cameras(TensorDataclass):
         )
 
     def to_json(
-        self, camera_idx: int, image: Optional[TensorType["height", "width", 2]] = None, max_size: Optional[int] = None
+        self,
+        camera_idx: int,
+        image: Optional[TensorType["height", "width", 2]] = None,
+        max_size: Optional[int] = None,
     ) -> Dict:
         """Convert a camera to a json dictionary.
 
@@ -715,7 +906,9 @@ class Cameras(TensorDataclass):
             "fy": flattened[camera_idx].fy.item(),
             "camera_to_world": self.camera_to_worlds[camera_idx].tolist(),
             "camera_index": camera_idx,
-            "times": flattened[camera_idx].times.item() if self.times is not None else None,
+            "times": flattened[camera_idx].times.item()
+            if self.times is not None
+            else None,
         }
         if image is not None:
             image_uint8 = (image * 255).detach().type(torch.uint8)
@@ -725,7 +918,10 @@ class Cameras(TensorDataclass):
                 image_uint8 = image_uint8.permute(1, 2, 0)
             image_uint8 = image_uint8.cpu().numpy()
             data = cv2.imencode(".jpg", image_uint8)[1].tobytes()
-            json_["image"] = str("data:image/jpeg;base64," + base64.b64encode(data).decode("ascii"))
+            json_["image"] = str(
+                "data:image/jpeg;base64,"
+                + base64.b64encode(data).decode("ascii")
+            )
         return json_
 
     def get_intrinsics_matrices(self) -> TensorType["num_cameras":..., 3, 3]:
@@ -743,7 +939,13 @@ class Cameras(TensorDataclass):
         return K
 
     def rescale_output_resolution(
-        self, scaling_factor: Union[TensorType["num_cameras":...], TensorType["num_cameras":..., 1], float, int]
+        self,
+        scaling_factor: Union[
+            TensorType["num_cameras":...],
+            TensorType["num_cameras":..., 1],
+            float,
+            int,
+        ],
     ) -> None:
         """Rescale the output resolution of the cameras.
 
@@ -751,10 +953,19 @@ class Cameras(TensorDataclass):
             scaling_factor: Scaling factor to apply to the output resolution.
         """
         if isinstance(scaling_factor, (float, int)):
-            scaling_factor = torch.tensor([scaling_factor]).to(self.device).broadcast_to((self.cx.shape))
-        elif isinstance(scaling_factor, torch.Tensor) and scaling_factor.shape == self.shape:
+            scaling_factor = (
+                torch.tensor([scaling_factor])
+                .to(self.device)
+                .broadcast_to((self.cx.shape))
+            )
+        elif (
+            isinstance(scaling_factor, torch.Tensor)
+            and scaling_factor.shape == self.shape
+        ):
             scaling_factor = scaling_factor.unsqueeze(-1)
-        elif isinstance(scaling_factor, torch.Tensor) and scaling_factor.shape == (*self.shape, 1):
+        elif isinstance(
+            scaling_factor, torch.Tensor
+        ) and scaling_factor.shape == (*self.shape, 1):
             pass
         else:
             raise ValueError(

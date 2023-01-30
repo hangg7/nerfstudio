@@ -24,7 +24,9 @@ import nerfstudio.utils.poses as pose_utils
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.camera_utils import get_interpolated_poses_many
 from nerfstudio.cameras.cameras import Cameras
-from nerfstudio.viewer.server.utils import three_js_perspective_camera_focal_length
+from nerfstudio.viewer.server.utils import (
+    three_js_perspective_camera_focal_length,
+)
 
 
 def get_interpolated_camera_path(cameras: Cameras, steps: int) -> Cameras:
@@ -39,9 +41,17 @@ def get_interpolated_camera_path(cameras: Cameras, steps: int) -> Cameras:
     """
     Ks = cameras.get_intrinsics_matrices().cpu().numpy()
     poses = cameras.camera_to_worlds().cpu().numpy()
-    poses, Ks = get_interpolated_poses_many(poses, Ks, steps_per_transition=steps)
+    poses, Ks = get_interpolated_poses_many(
+        poses, Ks, steps_per_transition=steps
+    )
 
-    cameras = Cameras(fx=Ks[:, 0, 0], fy=Ks[:, 1, 1], cx=Ks[0, 0, 2], cy=Ks[0, 1, 2], camera_to_worlds=poses)
+    cameras = Cameras(
+        fx=Ks[:, 0, 0],
+        fy=Ks[:, 1, 1],
+        cx=Ks[0, 0, 2],
+        cy=Ks[0, 1, 2],
+        camera_to_worlds=poses,
+    )
     return cameras
 
 
@@ -68,7 +78,9 @@ def get_spiral_path(
         A spiral camera path.
     """
 
-    assert radius is not None or radiuses is not None, "Either radius or radiuses must be specified."
+    assert (
+        radius is not None or radiuses is not None
+    ), "Either radius or radiuses must be specified."
     assert camera.ndim == 1, "We assume only one batch dim here"
     if radius is not None and radiuses is None:
         rad = torch.tensor([radius] * 3, device=camera.device)
@@ -79,7 +91,9 @@ def get_spiral_path(
 
     up = camera.camera_to_worlds[0, :3, 2]  # scene is z up
     focal = torch.min(camera.fx[0], camera.fy[0])
-    target = torch.tensor([0, 0, -focal], device=camera.device)  # camera looking in -z direction
+    target = torch.tensor(
+        [0, 0, -focal], device=camera.device
+    )  # camera looking in -z direction
 
     c2w = camera.camera_to_worlds[0]
     c2wh_global = pose_utils.to4x4(c2w)
@@ -87,7 +101,15 @@ def get_spiral_path(
     local_c2whs = []
     for theta in torch.linspace(0.0, 2.0 * torch.pi * rots, steps + 1)[:-1]:
         center = (
-            torch.tensor([torch.cos(theta), -torch.sin(theta), -torch.sin(theta * zrate)], device=camera.device) * rad
+            torch.tensor(
+                [
+                    torch.cos(theta),
+                    -torch.sin(theta),
+                    -torch.sin(theta * zrate),
+                ],
+                device=camera.device,
+            )
+            * rad
         )
         lookat = center - target
         c2w = camera_utils.viewmatrix(lookat, up, center)
@@ -131,7 +153,9 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
         c2ws.append(c2w)
         # field of view
         fov = camera["fov"]
-        focal_length = three_js_perspective_camera_focal_length(fov, image_height)
+        focal_length = three_js_perspective_camera_focal_length(
+            fov, image_height
+        )
         fxs.append(focal_length)
         fys.append(focal_length)
 

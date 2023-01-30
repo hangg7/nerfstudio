@@ -33,7 +33,10 @@ from nerfstudio.data.dataparsers.base_dataparser import (
     DataparserOutputs,
 )
 from nerfstudio.data.scene_box import SceneBox
-from nerfstudio.data.utils.colmap_utils import read_cameras_binary, read_images_binary
+from nerfstudio.data.utils.colmap_utils import (
+    read_cameras_binary,
+    read_images_binary,
+)
 
 CONSOLE = Console(width=120)
 

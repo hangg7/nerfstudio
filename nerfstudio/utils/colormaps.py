@@ -23,7 +23,9 @@ from torchtyping import TensorType
 from nerfstudio.utils import colors
 
 
-def apply_colormap(image: TensorType["bs":..., 1], cmap="viridis") -> TensorType["bs":..., "rgb":3]:
+def apply_colormap(
+    image: TensorType["bs":..., 1], cmap="viridis"
+) -> TensorType["bs":..., "rgb":3]:
     """Convert single channel to a color image.
 
     Args:

@@ -65,7 +65,9 @@ class HashMLPDensityField(Field):
         self.aabb = Parameter(aabb, requires_grad=False)
         self.spatial_distortion = spatial_distortion
         self.use_linear = use_linear
-        growth_factor = np.exp((np.log(max_res) - np.log(base_res)) / (num_levels - 1))
+        growth_factor = np.exp(
+            (np.log(max_res) - np.log(base_res)) / (num_levels - 1)
+        )
 
         config = {
             "encoding": {
@@ -93,23 +95,33 @@ class HashMLPDensityField(Field):
                 network_config=config["network"],
             )
         else:
-            self.encoding = tcnn.Encoding(n_input_dims=3, encoding_config=config["encoding"])
+            self.encoding = tcnn.Encoding(
+                n_input_dims=3, encoding_config=config["encoding"]
+            )
             self.linear = torch.nn.Linear(self.encoding.n_output_dims, 1)
 
     def get_density(self, ray_samples: RaySamples):
         if self.spatial_distortion is not None:
-            positions = self.spatial_distortion(ray_samples.frustums.get_positions())
+            positions = self.spatial_distortion(
+                ray_samples.frustums.get_positions()
+            )
             positions = (positions + 2.0) / 4.0
         else:
-            positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
+            positions = SceneBox.get_normalized_positions(
+                ray_samples.frustums.get_positions(), self.aabb
+            )
         positions_flat = positions.view(-1, 3)
         if not self.use_linear:
             density_before_activation = (
-                self.mlp_base(positions_flat).view(*ray_samples.frustums.shape, -1).to(positions)
+                self.mlp_base(positions_flat)
+                .view(*ray_samples.frustums.shape, -1)
+                .to(positions)
             )
         else:
             x = self.encoding(positions_flat).to(positions)
-            density_before_activation = self.linear(x).view(*ray_samples.frustums.shape, -1)
+            density_before_activation = self.linear(x).view(
+                *ray_samples.frustums.shape, -1
+            )
 
         # Rectifying the density with an exponential is much more stable than a ReLU or
         # softplus, because it enables high post-activation (float32) density outputs
@@ -117,5 +129,9 @@ class HashMLPDensityField(Field):
         density = trunc_exp(density_before_activation)
         return density, None
 
-    def get_outputs(self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None):
+    def get_outputs(
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
+    ):
         return {}

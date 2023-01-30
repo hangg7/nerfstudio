@@ -72,7 +72,9 @@ class ExportPointCloud(Exporter):
         _, pipeline, _ = eval_setup(self.load_config)
 
         # Increase the batchsize to speed up the evaluation.
-        pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
+        pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = (
+            self.num_rays_per_batch
+        )
 
         pcd = generate_point_cloud(
             pipeline=pipeline,
@@ -108,7 +110,9 @@ class ExportTSDFMesh(Exporter):
     """Name of the depth output."""
     rgb_output_name: str = "rgb"
     """Name of the RGB output."""
-    resolution: Union[int, List[int]] = field(default_factory=lambda: [128, 128, 128])
+    resolution: Union[int, List[int]] = field(
+        default_factory=lambda: [128, 128, 128]
+    )
     """Resolution of the TSDF volume or [x, y, z] resolutions individually."""
     batch_size: int = 10
     """How many depth images to integrate per batch."""
@@ -156,14 +160,17 @@ class ExportTSDFMesh(Exporter):
         if self.texture_method == "nerf":
             # load the mesh from the tsdf export
             mesh = get_mesh_from_filename(
-                str(self.output_dir / "tsdf_mesh.ply"), target_num_faces=self.target_num_faces
+                str(self.output_dir / "tsdf_mesh.ply"),
+                target_num_faces=self.target_num_faces,
             )
             CONSOLE.print("Texturing mesh with NeRF")
             texture_utils.export_textured_mesh(
                 mesh,
                 pipeline,
                 self.output_dir,
-                px_per_uv_triangle=self.px_per_uv_triangle if self.unwrap_method == "custom" else None,
+                px_per_uv_triangle=self.px_per_uv_triangle
+                if self.unwrap_method == "custom"
+                else None,
                 unwrap_method=self.unwrap_method,
                 num_pixels_per_side=self.num_pixels_per_side,
             )
@@ -219,7 +226,10 @@ class ExportPoissonMesh(Exporter):
             pixel_area = torch.ones_like(origins[..., :1])
             camera_indices = torch.zeros_like(origins[..., :1])
             ray_bundle = RayBundle(
-                origins=origins, directions=directions, pixel_area=pixel_area, camera_indices=camera_indices
+                origins=origins,
+                directions=directions,
+                pixel_area=pixel_area,
+                camera_indices=camera_indices,
             )
             outputs = pipeline.model(ray_bundle)
             if self.normal_output_name not in outputs:
@@ -231,7 +241,9 @@ class ExportPoissonMesh(Exporter):
                     "[bold yellow]Warning: Please train a model with normals "
                     "(e.g., nerfacto with predicted normals turned on)."
                 )
-                CONSOLE.print("[bold yellow]Warning: Or change --normal-method")
+                CONSOLE.print(
+                    "[bold yellow]Warning: Or change --normal-method"
+                )
                 CONSOLE.print("[bold yellow]Exiting early.")
                 sys.exit(1)
 
@@ -245,7 +257,9 @@ class ExportPoissonMesh(Exporter):
         self.validate_pipeline(pipeline)
 
         # Increase the batchsize to speed up the evaluation.
-        pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
+        pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = (
+            self.num_rays_per_batch
+        )
 
         # Whether the normals should be estimated based on the point cloud.
         estimate_normals = self.normal_method == "open3d"
@@ -257,7 +271,9 @@ class ExportPoissonMesh(Exporter):
             estimate_normals=estimate_normals,
             rgb_output_name=self.rgb_output_name,
             depth_output_name=self.depth_output_name,
-            normal_output_name=self.normal_output_name if self.normal_method == "model_output" else None,
+            normal_output_name=self.normal_output_name
+            if self.normal_method == "model_output"
+            else None,
             use_bounding_box=self.use_bounding_box,
             bounding_box_min=self.bounding_box_min,
             bounding_box_max=self.bounding_box_max,
@@ -268,19 +284,28 @@ class ExportPoissonMesh(Exporter):
 
         if self.save_point_cloud:
             CONSOLE.print("Saving Point Cloud...")
-            o3d.io.write_point_cloud(str(self.output_dir / "point_cloud.ply"), pcd)
+            o3d.io.write_point_cloud(
+                str(self.output_dir / "point_cloud.ply"), pcd
+            )
             print("\033[A\033[A")
             CONSOLE.print("[bold green]:white_check_mark: Saving Point Cloud")
 
         CONSOLE.print("Computing Mesh... this may take a while.")
-        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=9)
+        (
+            mesh,
+            densities,
+        ) = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=9
+        )
         vertices_to_remove = densities < np.quantile(densities, 0.1)
         mesh.remove_vertices_by_mask(vertices_to_remove)
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Computing Mesh")
 
         CONSOLE.print("Saving Mesh...")
-        o3d.io.write_triangle_mesh(str(self.output_dir / "poisson_mesh.ply"), mesh)
+        o3d.io.write_triangle_mesh(
+            str(self.output_dir / "poisson_mesh.ply"), mesh
+        )
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Saving Mesh")
 
@@ -289,14 +314,17 @@ class ExportPoissonMesh(Exporter):
         if self.texture_method == "nerf":
             # load the mesh from the poisson reconstruction
             mesh = get_mesh_from_filename(
-                str(self.output_dir / "poisson_mesh.ply"), target_num_faces=self.target_num_faces
+                str(self.output_dir / "poisson_mesh.ply"),
+                target_num_faces=self.target_num_faces,
             )
             CONSOLE.print("Texturing mesh with NeRF")
             texture_utils.export_textured_mesh(
                 mesh,
                 pipeline,
                 self.output_dir,
-                px_per_uv_triangle=self.px_per_uv_triangle if self.unwrap_method == "custom" else None,
+                px_per_uv_triangle=self.px_per_uv_triangle
+                if self.unwrap_method == "custom"
+                else None,
                 unwrap_method=self.unwrap_method,
                 num_pixels_per_side=self.num_pixels_per_side,
             )
@@ -318,7 +346,9 @@ Commands = Union[
     Annotated[ExportPointCloud, tyro.conf.subcommand(name="pointcloud")],
     Annotated[ExportTSDFMesh, tyro.conf.subcommand(name="tsdf")],
     Annotated[ExportPoissonMesh, tyro.conf.subcommand(name="poisson")],
-    Annotated[ExportMarchingCubesMesh, tyro.conf.subcommand(name="marching-cubes")],
+    Annotated[
+        ExportMarchingCubesMesh, tyro.conf.subcommand(name="marching-cubes")
+    ],
 ]
 
 

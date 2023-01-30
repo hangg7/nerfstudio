@@ -24,7 +24,9 @@ class SingleFrameStreamTrack(VideoStreamTrack):
 
     def __init__(self):
         super().__init__()
-        self.background_frame = np.ones((480, 640, 3), dtype="uint8") * 100  # gray background
+        self.background_frame = (
+            np.ones((480, 640, 3), dtype="uint8") * 100
+        )  # gray background
         self.frame = None
         self.put_frame(self.background_frame)
 

@@ -14,7 +14,9 @@ def test_scaling_and_offset():
 
     scaling = 2.0
     offset = 4.5
-    encoder = encodings.ScalingAndOffset(in_dim=in_dim, scaling=scaling, offset=offset)
+    encoder = encodings.ScalingAndOffset(
+        in_dim=in_dim, scaling=scaling, offset=offset
+    )
 
     assert encoder.get_out_dim() == in_dim
     encoded = encoder(in_tensor)
@@ -35,7 +37,10 @@ def test_nerf_encoder():
     min_freq_exp = 0
     max_freq_exp = 3
     encoder = encodings.NeRFEncoding(
-        in_dim=in_dim, num_frequencies=num_frequencies, min_freq_exp=min_freq_exp, max_freq_exp=max_freq_exp
+        in_dim=in_dim,
+        num_frequencies=num_frequencies,
+        min_freq_exp=min_freq_exp,
+        max_freq_exp=max_freq_exp,
     )
     assert encoder.get_out_dim() == out_dim
 
@@ -62,7 +67,9 @@ def test_rff_encoder():
 
     num_frequencies = 12
     scale = 5
-    encoder = encodings.RFFEncoding(in_dim=in_dim, num_frequencies=num_frequencies, scale=scale)
+    encoder = encodings.RFFEncoding(
+        in_dim=in_dim, num_frequencies=num_frequencies, scale=scale
+    )
     assert encoder.get_out_dim() == out_dim
 
     in_tensor = torch.ones((2, 3, in_dim))
@@ -83,7 +90,9 @@ def test_tensor_vm_encoder():
     in_dim = 3
     out_dim = 3 * num_components
 
-    encoder = encodings.TensorVMEncoding(num_components=num_components, resolution=resolution)
+    encoder = encodings.TensorVMEncoding(
+        num_components=num_components, resolution=resolution
+    )
     assert encoder.get_out_dim() == out_dim
 
     in_tensor = torch.ones((3, in_dim))
@@ -107,7 +116,9 @@ def test_tensor_cp_encoder():
     in_dim = 3
     out_dim = num_components
 
-    encoder = encodings.TensorCPEncoding(num_components=num_components, resolution=resolution)
+    encoder = encodings.TensorCPEncoding(
+        num_components=num_components, resolution=resolution
+    )
     assert encoder.get_out_dim() == out_dim
 
     in_tensor = torch.ones((3, in_dim))

@@ -46,7 +46,12 @@ class RGBRenderer(nn.Module):
         background_color: Background color as RGB. Uses random colors if None.
     """
 
-    def __init__(self, background_color: Union[Literal["random", "last_sample"], TensorType[3]] = "random") -> None:
+    def __init__(
+        self,
+        background_color: Union[
+            Literal["random", "last_sample"], TensorType[3]
+        ] = "random",
+    ) -> None:
         super().__init__()
         self.background_color = background_color
 
@@ -55,7 +60,9 @@ class RGBRenderer(nn.Module):
         cls,
         rgb: TensorType["bs":..., "num_samples", 3],
         weights: TensorType["bs":..., "num_samples", 1],
-        background_color: Union[Literal["random", "last_sample"], TensorType[3]] = "random",
+        background_color: Union[
+            Literal["random", "last_sample"], TensorType[3]
+        ] = "random",
         ray_indices: Optional[TensorType["num_samples"]] = None,
         num_rays: Optional[int] = None,
     ) -> TensorType["bs":..., 3]:
@@ -74,9 +81,15 @@ class RGBRenderer(nn.Module):
         if ray_indices is not None and num_rays is not None:
             # Necessary for packed samples from volumetric ray sampler
             if background_color == "last_sample":
-                raise NotImplementedError("Background color 'last_sample' not implemented for packed samples.")
-            comp_rgb = nerfacc.accumulate_along_rays(weights, ray_indices, rgb, num_rays)
-            accumulated_weight = nerfacc.accumulate_along_rays(weights, ray_indices, None, num_rays)
+                raise NotImplementedError(
+                    "Background color 'last_sample' not implemented for packed samples."
+                )
+            comp_rgb = nerfacc.accumulate_along_rays(
+                weights, ray_indices, rgb, num_rays
+            )
+            accumulated_weight = nerfacc.accumulate_along_rays(
+                weights, ray_indices, None, num_rays
+            )
         else:
             comp_rgb = torch.sum(weights * rgb, dim=-2)
             accumulated_weight = torch.sum(weights, dim=-2)
@@ -87,7 +100,9 @@ class RGBRenderer(nn.Module):
             background_color = torch.rand_like(comp_rgb).to(rgb.device)
 
         assert isinstance(background_color, torch.Tensor)
-        comp_rgb = comp_rgb + background_color.to(weights.device) * (1.0 - accumulated_weight)
+        comp_rgb = comp_rgb + background_color.to(weights.device) * (
+            1.0 - accumulated_weight
+        )
 
         return comp_rgb
 
@@ -111,7 +126,11 @@ class RGBRenderer(nn.Module):
         """
 
         rgb = self.combine_rgb(
-            rgb, weights, background_color=self.background_color, ray_indices=ray_indices, num_rays=num_rays
+            rgb,
+            weights,
+            background_color=self.background_color,
+            ray_indices=ray_indices,
+            num_rays=num_rays,
         )
         if not self.training:
             torch.clamp_(rgb, min=0.0, max=1.0)
@@ -128,7 +147,9 @@ class SHRenderer(nn.Module):
 
     def __init__(
         self,
-        background_color: Union[Literal["random", "last_sample"], TensorType[3]] = "random",
+        background_color: Union[
+            Literal["random", "last_sample"], TensorType[3]
+        ] = "random",
         activation: Optional[nn.Module] = nn.Sigmoid(),
     ) -> None:
         super().__init__()
@@ -155,15 +176,21 @@ class SHRenderer(nn.Module):
         sh = sh.view(*sh.shape[:-1], 3, sh.shape[-1] // 3)
 
         levels = int(math.sqrt(sh.shape[-1]))
-        components = components_from_spherical_harmonics(levels=levels, directions=directions)
+        components = components_from_spherical_harmonics(
+            levels=levels, directions=directions
+        )
 
-        rgb = sh * components[..., None, :]  # [..., num_samples, 3, sh_components]
+        rgb = (
+            sh * components[..., None, :]
+        )  # [..., num_samples, 3, sh_components]
         rgb = torch.sum(sh, dim=-1) + 0.5  # [..., num_samples, 3]
 
         if self.activation is not None:
             self.activation(rgb)
 
-        rgb = RGBRenderer.combine_rgb(rgb, weights, background_color=self.background_color)
+        rgb = RGBRenderer.combine_rgb(
+            rgb, weights, background_color=self.background_color
+        )
 
         return rgb
 
@@ -191,7 +218,9 @@ class AccumulationRenderer(nn.Module):
 
         if ray_indices is not None and num_rays is not None:
             # Necessary for packed samples from volumetric ray sampler
-            accumulation = nerfacc.accumulate_along_rays(weights, ray_indices, None, num_rays)
+            accumulation = nerfacc.accumulate_along_rays(
+                weights, ray_indices, None, num_rays
+            )
         else:
             accumulation = torch.sum(weights, dim=-2)
         return accumulation
@@ -208,7 +237,9 @@ class DepthRenderer(nn.Module):
         method: Depth calculation method.
     """
 
-    def __init__(self, method: Literal["median", "expected"] = "median") -> None:
+    def __init__(
+        self, method: Literal["median", "expected"] = "median"
+    ) -> None:
         super().__init__()
         self.method = method
 
@@ -232,27 +263,50 @@ class DepthRenderer(nn.Module):
         """
 
         if self.method == "median":
-            steps = (ray_samples.frustums.starts + ray_samples.frustums.ends) / 2
+            steps = (
+                ray_samples.frustums.starts + ray_samples.frustums.ends
+            ) / 2
 
             if ray_indices is not None and num_rays is not None:
-                raise NotImplementedError("Median depth calculation is not implemented for packed samples.")
-            cumulative_weights = torch.cumsum(weights[..., 0], dim=-1)  # [..., num_samples]
-            split = torch.ones((*weights.shape[:-2], 1), device=weights.device) * 0.5  # [..., 1]
-            median_index = torch.searchsorted(cumulative_weights, split, side="left")  # [..., 1]
-            median_index = torch.clamp(median_index, 0, steps.shape[-2] - 1)  # [..., 1]
-            median_depth = torch.gather(steps[..., 0], dim=-1, index=median_index)  # [..., 1]
+                raise NotImplementedError(
+                    "Median depth calculation is not implemented for packed samples."
+                )
+            cumulative_weights = torch.cumsum(
+                weights[..., 0], dim=-1
+            )  # [..., num_samples]
+            split = (
+                torch.ones((*weights.shape[:-2], 1), device=weights.device)
+                * 0.5
+            )  # [..., 1]
+            median_index = torch.searchsorted(
+                cumulative_weights, split, side="left"
+            )  # [..., 1]
+            median_index = torch.clamp(
+                median_index, 0, steps.shape[-2] - 1
+            )  # [..., 1]
+            median_depth = torch.gather(
+                steps[..., 0], dim=-1, index=median_index
+            )  # [..., 1]
             return median_depth
         if self.method == "expected":
             eps = 1e-10
-            steps = (ray_samples.frustums.starts + ray_samples.frustums.ends) / 2
+            steps = (
+                ray_samples.frustums.starts + ray_samples.frustums.ends
+            ) / 2
 
             if ray_indices is not None and num_rays is not None:
                 # Necessary for packed samples from volumetric ray sampler
-                depth = nerfacc.accumulate_along_rays(weights, ray_indices, steps, num_rays)
-                accumulation = nerfacc.accumulate_along_rays(weights, ray_indices, None, num_rays)
+                depth = nerfacc.accumulate_along_rays(
+                    weights, ray_indices, steps, num_rays
+                )
+                accumulation = nerfacc.accumulate_along_rays(
+                    weights, ray_indices, None, num_rays
+                )
                 depth = depth / (accumulation + eps)
             else:
-                depth = torch.sum(weights * steps, dim=-2) / (torch.sum(weights, -2) + eps)
+                depth = torch.sum(weights * steps, dim=-2) / (
+                    torch.sum(weights, -2) + eps
+                )
 
             depth = torch.clip(depth, steps.min(), steps.max())
 
@@ -266,7 +320,9 @@ class UncertaintyRenderer(nn.Module):
 
     @classmethod
     def forward(
-        cls, betas: TensorType["bs":..., "num_samples", 1], weights: TensorType["bs":..., "num_samples", 1]
+        cls,
+        betas: TensorType["bs":..., "num_samples", 1],
+        weights: TensorType["bs":..., "num_samples", 1],
     ) -> TensorType["bs":..., 1]:
         """Calculate uncertainty along the ray.
 

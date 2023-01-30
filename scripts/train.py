@@ -74,7 +74,12 @@ def _set_random_seed(seed) -> None:
     torch.manual_seed(seed)
 
 
-def train_loop(local_rank: int, world_size: int, config: ExperimentConfig, global_rank: int = 0):
+def train_loop(
+    local_rank: int,
+    world_size: int,
+    config: ExperimentConfig,
+    global_rank: int = 0,
+):
     """Main training function that sets up and runs the trainer per process
 
     Args:
@@ -119,7 +124,9 @@ def _distributed_worker(
     Returns:
         Any: TODO: determine the return type
     """
-    assert torch.cuda.is_available(), "cuda is not available. Please check your installation."
+    assert (
+        torch.cuda.is_available()
+    ), "cuda is not available. Please check your installation."
     global_rank = machine_rank * num_gpus_per_machine + local_rank
 
     dist.init_process_group(
@@ -132,7 +139,9 @@ def _distributed_worker(
     assert comms.LOCAL_PROCESS_GROUP is None
     num_machines = world_size // num_gpus_per_machine
     for i in range(num_machines):
-        ranks_on_i = list(range(i * num_gpus_per_machine, (i + 1) * num_gpus_per_machine))
+        ranks_on_i = list(
+            range(i * num_gpus_per_machine, (i + 1) * num_gpus_per_machine)
+        )
         pg = dist.new_group(ranks_on_i)
         if i == machine_rank:
             comms.LOCAL_PROCESS_GROUP = pg
@@ -179,11 +188,15 @@ def launch(
     elif world_size > 1:
         # Using multiple gpus with multiple processes.
         if dist_url == "auto":
-            assert num_machines == 1, "dist_url=auto is not supported for multi-machine jobs."
+            assert (
+                num_machines == 1
+            ), "dist_url=auto is not supported for multi-machine jobs."
             port = _find_free_port()
             dist_url = f"tcp://127.0.0.1:{port}"
         if num_machines > 1 and dist_url.startswith("file://"):
-            CONSOLE.log("file:// is not a reliable init_method in multi-machine jobs. Prefer tcp://")
+            CONSOLE.log(
+                "file:// is not a reliable init_method in multi-machine jobs. Prefer tcp://"
+            )
 
         process_context = mp.spawn(
             _distributed_worker,
@@ -220,12 +233,18 @@ def main(config: ExperimentConfig) -> None:
 
     config.set_timestamp()
     if config.data:
-        CONSOLE.log("Using --data alias for --data.pipeline.datamanager.dataparser.data")
+        CONSOLE.log(
+            "Using --data alias for --data.pipeline.datamanager.dataparser.data"
+        )
         config.pipeline.datamanager.dataparser.data = config.data
 
     if config.trainer.load_config:
-        CONSOLE.log(f"Loading pre-set config from: {config.trainer.load_config}")
-        config = yaml.load(config.trainer.load_config.read_text(), Loader=yaml.Loader)
+        CONSOLE.log(
+            f"Loading pre-set config from: {config.trainer.load_config}"
+        )
+        config = yaml.load(
+            config.trainer.load_config.read_text(), Loader=yaml.Loader
+        )
 
     # print and save config
     config.print_to_terminal()

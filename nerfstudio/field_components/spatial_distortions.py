@@ -71,17 +71,33 @@ class SceneContraction(SpatialDistortion):
         if isinstance(positions, Gaussians):
             means = contract(positions.mean.clone())
 
-            contract = lambda x: (2 - (1 / torch.linalg.norm(x, ord=self.order, dim=-1, keepdim=True))) * (
+            contract = lambda x: (
+                2
+                - (
+                    1
+                    / torch.linalg.norm(
+                        x, ord=self.order, dim=-1, keepdim=True
+                    )
+                )
+            ) * (
                 x / torch.linalg.norm(x, ord=self.order, dim=-1, keepdim=True)
             )
-            jc_means = vmap(jacrev(contract))(positions.mean.view(-1, positions.mean.shape[-1]))
-            jc_means = jc_means.view(list(positions.mean.shape) + [positions.mean.shape[-1]])
+            jc_means = vmap(jacrev(contract))(
+                positions.mean.view(-1, positions.mean.shape[-1])
+            )
+            jc_means = jc_means.view(
+                list(positions.mean.shape) + [positions.mean.shape[-1]]
+            )
 
             # Only update covariances on positions outside the unit sphere
             mag = positions.mean.norm(dim=-1)
             mask = mag >= 1
             cov = positions.cov.clone()
-            cov[mask] = jc_means[mask] @ positions.cov[mask] @ torch.transpose(jc_means[mask], -2, -1)
+            cov[mask] = (
+                jc_means[mask]
+                @ positions.cov[mask]
+                @ torch.transpose(jc_means[mask], -2, -1)
+            )
 
             return Gaussians(mean=means, cov=cov)
 

@@ -50,7 +50,9 @@ def inverse(pose: TensorType[..., 3, 4]) -> TensorType[..., 3, 4]:
     return torch.cat([R_inverse, t_inverse], dim=-1)
 
 
-def multiply(pose_a: TensorType[..., 3, 4], pose_b: TensorType[..., 3, 4]) -> TensorType[..., 3, 4]:
+def multiply(
+    pose_a: TensorType[..., 3, 4], pose_b: TensorType[..., 3, 4]
+) -> TensorType[..., 3, 4]:
     """Multiply two pose matrices, A @ B.
 
     Args:

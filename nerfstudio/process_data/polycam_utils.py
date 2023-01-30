@@ -56,7 +56,10 @@ def polycam_to_json(
     for i, image_filename in enumerate(image_filenames):
         json_filename = cameras_dir / f"{image_filename.stem}.json"
         frame_json = io.load_from_json(json_filename)
-        if "blur_score" in frame_json and frame_json["blur_score"] < min_blur_score:
+        if (
+            "blur_score" in frame_json
+            and frame_json["blur_score"] < min_blur_score
+        ):
             skipped_frames += 1
             continue
         frame = {}
@@ -69,9 +72,24 @@ def polycam_to_json(
         frame["file_path"] = f"./images/frame_{i+1:05d}{image_filename.suffix}"
         # Transform matrix to nerfstudio format. Please refer to the documentation for coordinate system conventions.
         frame["transform_matrix"] = [
-            [frame_json["t_20"], frame_json["t_21"], frame_json["t_22"], frame_json["t_23"]],
-            [frame_json["t_00"], frame_json["t_01"], frame_json["t_02"], frame_json["t_03"]],
-            [frame_json["t_10"], frame_json["t_11"], frame_json["t_12"], frame_json["t_13"]],
+            [
+                frame_json["t_20"],
+                frame_json["t_21"],
+                frame_json["t_22"],
+                frame_json["t_23"],
+            ],
+            [
+                frame_json["t_00"],
+                frame_json["t_01"],
+                frame_json["t_02"],
+                frame_json["t_03"],
+            ],
+            [
+                frame_json["t_10"],
+                frame_json["t_11"],
+                frame_json["t_12"],
+                frame_json["t_13"],
+            ],
             [0.0, 0.0, 0.0, 1.0],
         ]
         frames.append(frame)
@@ -82,8 +100,12 @@ def polycam_to_json(
 
     summary = []
     if skipped_frames > 0:
-        summary.append(f"Skipped {skipped_frames} frames due to low blur score.")
-    summary.append(f"Final dataset is {len(image_filenames) - skipped_frames} frames.")
+        summary.append(
+            f"Skipped {skipped_frames} frames due to low blur score."
+        )
+    summary.append(
+        f"Final dataset is {len(image_filenames) - skipped_frames} frames."
+    )
 
     if len(image_filenames) - skipped_frames == 0:
         CONSOLE.print("[bold red]No images remain after filtering, exiting")

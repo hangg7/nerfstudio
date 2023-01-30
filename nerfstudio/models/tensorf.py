@@ -35,7 +35,10 @@ from nerfstudio.engine.callbacks import (
     TrainingCallbackAttributes,
     TrainingCallbackLocation,
 )
-from nerfstudio.field_components.encodings import NeRFEncoding, TensorVMEncoding
+from nerfstudio.field_components.encodings import (
+    NeRFEncoding,
+    TensorVMEncoding,
+)
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.fields.tensorf_field import TensoRFField
 from nerfstudio.model_components.losses import MSELoss
@@ -112,7 +115,9 @@ class TensoRFModel(Model):
 
         # the callback that we want to run every X iterations after the training iteration
         def reinitialize_optimizer(
-            self, training_callback_attributes: TrainingCallbackAttributes, step: int  # pylint: disable=unused-argument
+            self,
+            training_callback_attributes: TrainingCallbackAttributes,
+            step: int,  # pylint: disable=unused-argument
         ):
             resolution = self.upsampling_steps.pop(0)
 
@@ -122,16 +127,23 @@ class TensoRFModel(Model):
 
             # reinitialize the encodings optimizer
             optimizers_config = training_callback_attributes.optimizers.config
-            enc = training_callback_attributes.pipeline.get_param_groups()["encodings"]
+            enc = training_callback_attributes.pipeline.get_param_groups()[
+                "encodings"
+            ]
             lr_init = optimizers_config["encodings"]["optimizer"].lr
 
-            training_callback_attributes.optimizers.optimizers["encodings"] = optimizers_config["encodings"][
-                "optimizer"
-            ].setup(params=enc)
+            training_callback_attributes.optimizers.optimizers[
+                "encodings"
+            ] = optimizers_config["encodings"]["optimizer"].setup(params=enc)
             if optimizers_config["encodings"]["scheduler"]:
-                training_callback_attributes.optimizers.schedulers["encodings"] = optimizers_config["encodings"][
-                    "scheduler"
-                ].setup(optimizer=training_callback_attributes.optimizers.optimizers["encodings"], lr_init=lr_init)
+                training_callback_attributes.optimizers.schedulers[
+                    "encodings"
+                ] = optimizers_config["encodings"]["scheduler"].setup(
+                    optimizer=training_callback_attributes.optimizers.optimizers[
+                        "encodings"
+                    ],
+                    lr_init=lr_init,
+                )
 
         callbacks = [
             TrainingCallback(
@@ -157,8 +169,15 @@ class TensoRFModel(Model):
             num_components=self.num_color_components,
         )
 
-        feature_encoding = NeRFEncoding(in_dim=self.appearance_dim, num_frequencies=2, min_freq_exp=0, max_freq_exp=2)
-        direction_encoding = NeRFEncoding(in_dim=3, num_frequencies=2, min_freq_exp=0, max_freq_exp=2)
+        feature_encoding = NeRFEncoding(
+            in_dim=self.appearance_dim,
+            num_frequencies=2,
+            min_freq_exp=0,
+            max_freq_exp=2,
+        )
+        direction_encoding = NeRFEncoding(
+            in_dim=3, num_frequencies=2, min_freq_exp=0, max_freq_exp=2
+        )
 
         self.field = TensoRFField(
             self.scene_box.aabb,
@@ -173,8 +192,12 @@ class TensoRFModel(Model):
         )
 
         # samplers
-        self.sampler_uniform = UniformSampler(num_samples=self.config.num_samples, single_jitter=True)
-        self.sampler_pdf = PDFSampler(num_samples=self.config.num_samples // 2, single_jitter=True)
+        self.sampler_uniform = UniformSampler(
+            num_samples=self.config.num_samples, single_jitter=True
+        )
+        self.sampler_pdf = PDFSampler(
+            num_samples=self.config.num_samples // 2, single_jitter=True
+        )
 
         # renderers
         self.renderer_rgb = RGBRenderer(background_color=colors.WHITE)
@@ -201,9 +224,9 @@ class TensoRFModel(Model):
             + list(self.field.B.parameters())
             + list(self.field.field_output_rgb.parameters())
         )
-        param_groups["encodings"] = list(self.field.color_encoding.parameters()) + list(
-            self.field.density_encoding.parameters()
-        )
+        param_groups["encodings"] = list(
+            self.field.color_encoding.parameters()
+        ) + list(self.field.density_encoding.parameters())
 
         return param_groups
 
@@ -213,17 +236,25 @@ class TensoRFModel(Model):
         dens = self.field.get_density(ray_samples_uniform)
         weights = ray_samples_uniform.get_weights(dens)
         coarse_accumulation = self.renderer_accumulation(weights)
-        acc_mask = torch.where(coarse_accumulation < 0.0001, False, True).reshape(-1)
+        acc_mask = torch.where(
+            coarse_accumulation < 0.0001, False, True
+        ).reshape(-1)
 
         # pdf sampling
-        ray_samples_pdf = self.sampler_pdf(ray_bundle, ray_samples_uniform, weights)
+        ray_samples_pdf = self.sampler_pdf(
+            ray_bundle, ray_samples_uniform, weights
+        )
 
         # fine field:
         field_outputs_fine = self.field.forward(
-            ray_samples_pdf, mask=acc_mask, bg_color=colors.WHITE.to(weights.device)
+            ray_samples_pdf,
+            mask=acc_mask,
+            bg_color=colors.WHITE.to(weights.device),
         )
 
-        weights_fine = ray_samples_pdf.get_weights(field_outputs_fine[FieldHeadNames.DENSITY])
+        weights_fine = ray_samples_pdf.get_weights(
+            field_outputs_fine[FieldHeadNames.DENSITY]
+        )
 
         accumulation = self.renderer_accumulation(weights_fine)
         depth = self.renderer_depth(weights_fine, ray_samples_pdf)
@@ -239,7 +270,9 @@ class TensoRFModel(Model):
         outputs = {"rgb": rgb, "accumulation": accumulation, "depth": depth}
         return outputs
 
-    def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict[str, torch.Tensor]:
+    def get_loss_dict(
+        self, outputs, batch, metrics_dict=None
+    ) -> Dict[str, torch.Tensor]:
         # Scaling metrics by coefficients to create the losses.
         device = outputs["rgb"].device
         image = batch["image"].to(device)
@@ -278,5 +311,9 @@ class TensoRFModel(Model):
             "ssim": float(ssim.item()),
             "lpips": float(lpips.item()),
         }
-        images_dict = {"img": combined_rgb, "accumulation": acc, "depth": depth}
+        images_dict = {
+            "img": combined_rgb,
+            "accumulation": acc,
+            "depth": depth,
+        }
         return metrics_dict, images_dict

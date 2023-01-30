@@ -112,7 +112,9 @@ def vis_dataset(camera_origins: TensorType["num_cameras", 3], ray_bundle: RayBun
 
     skip = 1
     size = 8
-    assert len(ray_bundle) < 500, "Let's not break plotly by plotting too many rays!"
+    assert (
+        len(ray_bundle) < 500
+    ), "Let's not break plotly by plotting too many rays!"
 
     data = []
     data += [
@@ -128,7 +130,11 @@ def vis_dataset(camera_origins: TensorType["num_cameras", 3], ray_bundle: RayBun
 
     length = 2.0
     lines = torch.stack(
-        [ray_bundle.origins, ray_bundle.origins + ray_bundle.directions * length], dim=1
+        [
+            ray_bundle.origins,
+            ray_bundle.origins + ray_bundle.directions * length,
+        ],
+        dim=1,
     )  # (num_rays, 2, 3)
 
     data += get_line_segments_from_lines(lines)
@@ -140,14 +146,20 @@ def vis_dataset(camera_origins: TensorType["num_cameras", 3], ray_bundle: RayBun
         margin=go.layout.Margin(l=50, r=50, b=100, t=100, pad=4),  # type: ignore
         scene=go.layout.Scene(  # type: ignore
             aspectmode="data",
-            camera=dict(up=dict(x=0, y=0, z=1), center=dict(x=0, y=0, z=0), eye=dict(x=1.25, y=1.25, z=1.25)),
+            camera=dict(
+                up=dict(x=0, y=0, z=1),
+                center=dict(x=0, y=0, z=0),
+                eye=dict(x=1.25, y=1.25, z=1.25),
+            ),
         ),
     )
     fig = go.Figure(data=data, layout=layout)
     return fig
 
 
-def get_random_color(colormap: Optional[List[str]] = None, idx: Optional[int] = None) -> str:
+def get_random_color(
+    colormap: Optional[List[str]] = None, idx: Optional[int] = None
+) -> str:
     """Get a random color from a colormap.
 
     Args:
@@ -165,7 +177,11 @@ def get_random_color(colormap: Optional[List[str]] = None, idx: Optional[int] = 
 
 
 def get_sphere(
-    radius: float, center: TensorType[3] = None, color: str = "black", opacity: float = 1.0, resolution: int = 32
+    radius: float,
+    center: TensorType[3] = None,
+    color: str = "black",
+    opacity: float = 1.0,
+    resolution: int = 32,
 ) -> go.Mesh3d:  # type: ignore
     """Returns a sphere object for plotting with plotly.
 
@@ -304,7 +320,10 @@ def get_gaussian_ellipsiod(
 
 
 def get_gaussian_ellipsoids_list(
-    gaussians: Gaussians, opacity: float = 0.5, color: str = "random", resolution: int = 20
+    gaussians: Gaussians,
+    opacity: float = 0.5,
+    color: str = "random",
+    resolution: int = 20,
 ) -> List[Union[go.Mesh3d, go.Scatter3d]]:  # type: ignore
     """Get a list of plotly meshes for frustums.
 
@@ -347,7 +366,10 @@ def get_gaussian_ellipsoids_list(
 
 
 def get_frustum_mesh(
-    frustum: Frustums, opacity: float = 0.3, color: str = "#DC203C", resolution: int = 20
+    frustum: Frustums,
+    opacity: float = 0.3,
+    color: str = "#DC203C",
+    resolution: int = 20,
 ) -> go.Mesh3d:  # type: ignore
     """Get a plotly mesh for a single frustum.
 
@@ -368,7 +390,12 @@ def get_frustum_mesh(
     f_radius = frustum.starts * base_radius
     b_radius = frustum.ends * base_radius
 
-    x = torch.cat([torch.ones(resolution) * frustum.starts, torch.ones(resolution) * frustum.ends])
+    x = torch.cat(
+        [
+            torch.ones(resolution) * frustum.starts,
+            torch.ones(resolution) * frustum.ends,
+        ]
+    )
     pts = torch.linspace(0, 2 * torch.pi, resolution)
 
     y = torch.sin(pts)
@@ -398,7 +425,10 @@ def get_frustum_mesh(
 
 
 def get_frustums_mesh_list(
-    frustums: Frustums, opacity: float = 1.0, color: str = "random", resolution: int = 20
+    frustums: Frustums,
+    opacity: float = 1.0,
+    color: str = "random",
+    resolution: int = 20,
 ) -> List[go.Mesh3d]:  # type: ignore
     """Get a list of plotly meshes for a list of frustums.
 
@@ -417,12 +447,19 @@ def get_frustums_mesh_list(
             c = get_random_color(idx=i)
         else:
             c = color
-        data.append(get_frustum_mesh(frustum, opacity=opacity, color=c, resolution=resolution))
+        data.append(
+            get_frustum_mesh(
+                frustum, opacity=opacity, color=c, resolution=resolution
+            )
+        )
     return data
 
 
 def get_frustum_points(
-    frustum: Frustums, opacity: float = 1.0, color: str = "forestgreen", size: float = 5
+    frustum: Frustums,
+    opacity: float = 1.0,
+    color: str = "forestgreen",
+    size: float = 5,
 ) -> go.Scatter3d:  # type: ignore
     """Get a set plotly points for frustums centers.
 
@@ -454,7 +491,10 @@ def get_frustum_points(
 
 
 def get_ray_bundle_lines(
-    ray_bundle: RayBundle, length: float = 1.0, color: str = "#DC203C", width: float = 1
+    ray_bundle: RayBundle,
+    length: float = 1.0,
+    color: str = "#DC203C",
+    width: float = 1,
 ) -> go.Scatter3d:  # type: ignore
     """Get a plotly line for a ray bundle.
 
@@ -495,8 +535,12 @@ def vis_camera_rays(cameras: Cameras) -> go.Figure:  # type: ignore
     """
 
     coords = cameras.get_image_coords()
-    coords[..., 0] /= cameras.image_height[0]  # All the cameras have the same image height for now
-    coords[..., 1] /= cameras.image_width[0]  # All the cameras have the same image width for now
+    coords[..., 0] /= cameras.image_height[
+        0
+    ]  # All the cameras have the same image height for now
+    coords[..., 1] /= cameras.image_width[
+        0
+    ]  # All the cameras have the same image width for now
     coords = torch.cat([coords, torch.ones((*coords.shape[:-1], 1))], dim=-1)
 
     ray_bundle = cameras.generate_rays(camera_indices=0)

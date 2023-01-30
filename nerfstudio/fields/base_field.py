@@ -35,7 +35,9 @@ class Field(nn.Module):
         self._sample_locations = None
         self._density_before_activation = None
 
-    def density_fn(self, positions: TensorType["bs":..., 3]) -> TensorType["bs":..., 1]:
+    def density_fn(
+        self, positions: TensorType["bs":..., 3]
+    ) -> TensorType["bs":..., 1]:
         """Returns only the density. Used primarily with the density grid.
 
         Args:
@@ -55,7 +57,9 @@ class Field(nn.Module):
         return density
 
     @abstractmethod
-    def get_density(self, ray_samples: RaySamples) -> Tuple[TensorType[..., 1], TensorType[..., "num_features"]]:
+    def get_density(
+        self, ray_samples: RaySamples
+    ) -> Tuple[TensorType[..., 1], TensorType[..., "num_features"]]:
         """Computes and returns the densities. Returns a tensor of densities and a tensor of features.
 
         Args:
@@ -68,10 +72,15 @@ class Field(nn.Module):
         Args:
             density: Tensor of densities.
         """
-        assert self._sample_locations is not None, "Sample locations must be set before calling get_normals."
-        assert self._density_before_activation is not None, "Density must be set before calling get_normals."
         assert (
-            self._sample_locations.shape[:-1] == self._density_before_activation.shape[:-1]
+            self._sample_locations is not None
+        ), "Sample locations must be set before calling get_normals."
+        assert (
+            self._density_before_activation is not None
+        ), "Density must be set before calling get_normals."
+        assert (
+            self._sample_locations.shape[:-1]
+            == self._density_before_activation.shape[:-1]
         ), "Sample locations and density must have the same shape besides the last dimension."
 
         normals = torch.autograd.grad(
@@ -87,7 +96,9 @@ class Field(nn.Module):
 
     @abstractmethod
     def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
     ) -> Dict[FieldHeadNames, TensorType]:
         """Computes and returns the colors. Returns output field values.
 
@@ -108,7 +119,9 @@ class Field(nn.Module):
         else:
             density, density_embedding = self.get_density(ray_samples)
 
-        field_outputs = self.get_outputs(ray_samples, density_embedding=density_embedding)
+        field_outputs = self.get_outputs(
+            ray_samples, density_embedding=density_embedding
+        )
         field_outputs[FieldHeadNames.DENSITY] = density  # type: ignore
 
         if compute_normals:

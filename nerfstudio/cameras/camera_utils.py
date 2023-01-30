@@ -102,7 +102,9 @@ def quaternion_from_matrix(matrix, isprecise: bool = False) -> np.ndarray:
     return q
 
 
-def quaternion_slerp(quat0, quat1, fraction: float, spin: int = 0, shortestpath: bool = True) -> np.ndarray:
+def quaternion_slerp(
+    quat0, quat1, fraction: float, spin: int = 0, shortestpath: bool = True
+) -> np.ndarray:
     """Return spherical linear interpolation between two quaternions.
     Args:
         quat0: first quaternion
@@ -150,9 +152,24 @@ def quaternion_matrix(quaternion) -> np.ndarray:
     q = np.outer(q, q)
     return np.array(
         [
-            [1.0 - q[2, 2] - q[3, 3], q[1, 2] - q[3, 0], q[1, 3] + q[2, 0], 0.0],
-            [q[1, 2] + q[3, 0], 1.0 - q[1, 1] - q[3, 3], q[2, 3] - q[1, 0], 0.0],
-            [q[1, 3] - q[2, 0], q[2, 3] + q[1, 0], 1.0 - q[1, 1] - q[2, 2], 0.0],
+            [
+                1.0 - q[2, 2] - q[3, 3],
+                q[1, 2] - q[3, 0],
+                q[1, 3] + q[2, 0],
+                0.0,
+            ],
+            [
+                q[1, 2] + q[3, 0],
+                1.0 - q[1, 1] - q[3, 3],
+                q[2, 3] - q[1, 0],
+                0.0,
+            ],
+            [
+                q[1, 3] - q[2, 0],
+                q[2, 3] + q[1, 0],
+                1.0 - q[1, 1] - q[2, 2],
+                0.0,
+            ],
             [0.0, 0.0, 0.0, 1.0],
         ]
     )
@@ -219,7 +236,9 @@ def get_interpolated_poses_many(
     for idx in range(poses.shape[0] - 1):
         pose_a = poses[idx]
         pose_b = poses[idx + 1]
-        poses_ab = get_interpolated_poses(pose_a, pose_b, steps=steps_per_transition)
+        poses_ab = get_interpolated_poses(
+            pose_a, pose_b, steps=steps_per_transition
+        )
         traj += poses_ab
         Ks += get_interpolated_k(Ks[idx], Ks[idx + 1], steps_per_transition)
     return torch.stack(traj, dim=0), torch.stack(Ks, dim=0)
@@ -279,7 +298,14 @@ def _compute_residual_and_jacobian(
     xd: torch.Tensor,
     yd: torch.Tensor,
     distortion_params: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,]:
+) -> Tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]:
     """Auxiliary function of radial_and_tangential_undistort() that computes residuals and jacobians.
     Adapted from MultiNeRF:
     https://github.com/google-research/multinerf/blob/b02228160d3179300c7d499dca28cb9ca3677f32/internal/camera_utils.py#L427-L474
@@ -365,13 +391,25 @@ def radial_and_tangential_undistort(
 
     for _ in range(max_iterations):
         fx, fy, fx_x, fx_y, fy_x, fy_y = _compute_residual_and_jacobian(
-            x=x, y=y, xd=coords[..., 0], yd=coords[..., 1], distortion_params=distortion_params
+            x=x,
+            y=y,
+            xd=coords[..., 0],
+            yd=coords[..., 1],
+            distortion_params=distortion_params,
         )
         denominator = fy_x * fx_y - fx_x * fy_y
         x_numerator = fx * fy_y - fy * fx_y
         y_numerator = fy * fx_x - fx * fy_x
-        step_x = torch.where(torch.abs(denominator) > eps, x_numerator / denominator, torch.zeros_like(denominator))
-        step_y = torch.where(torch.abs(denominator) > eps, y_numerator / denominator, torch.zeros_like(denominator))
+        step_x = torch.where(
+            torch.abs(denominator) > eps,
+            x_numerator / denominator,
+            torch.zeros_like(denominator),
+        )
+        step_y = torch.where(
+            torch.abs(denominator) > eps,
+            y_numerator / denominator,
+            torch.zeros_like(denominator),
+        )
 
         x = x + step_x
         y = y + step_y
@@ -404,11 +442,17 @@ def rotation_matrix(a: TensorType[3], b: TensorType[3]) -> TensorType[3, 3]:
             [-v[1], v[0], 0],
         ]
     )
-    return torch.eye(3) + skew_sym_mat + skew_sym_mat @ skew_sym_mat * ((1 - c) / (s**2 + 1e-8))
+    return (
+        torch.eye(3)
+        + skew_sym_mat
+        + skew_sym_mat @ skew_sym_mat * ((1 - c) / (s**2 + 1e-8))
+    )
 
 
 def auto_orient_and_center_poses(
-    poses: TensorType["num_poses":..., 4, 4], method: Literal["pca", "up", "none"] = "up", center_poses: bool = True
+    poses: TensorType["num_poses":..., 4, 4],
+    method: Literal["pca", "up", "none"] = "up",
+    center_poses: bool = True,
 ) -> Tuple[TensorType["num_poses":..., 3, 4], TensorType[4, 4]]:
     """Orients and centers the poses. We provide two methods for orientation: pca and up.
 
@@ -444,7 +488,9 @@ def auto_orient_and_center_poses(
         if torch.linalg.det(eigvec) < 0:
             eigvec[:, 2] = -eigvec[:, 2]
 
-        transform = torch.cat([eigvec, eigvec @ -translation[..., None]], dim=-1)
+        transform = torch.cat(
+            [eigvec, eigvec @ -translation[..., None]], dim=-1
+        )
         oriented_poses = transform @ poses
 
         if oriented_poses.mean(axis=0)[2, 1] < 0:
@@ -454,7 +500,9 @@ def auto_orient_and_center_poses(
         up = up / torch.linalg.norm(up)
 
         rotation = rotation_matrix(up, torch.Tensor([0, 0, 1]))
-        transform = torch.cat([rotation, rotation @ -translation[..., None]], dim=-1)
+        transform = torch.cat(
+            [rotation, rotation @ -translation[..., None]], dim=-1
+        )
         oriented_poses = transform @ poses
     elif method == "none":
         transform = torch.eye(4)

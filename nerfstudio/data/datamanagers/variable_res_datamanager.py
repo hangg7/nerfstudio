@@ -21,7 +21,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
-from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
+from nerfstudio.data.datamanagers.base_datamanager import (
+    VanillaDataManagerConfig,
+)
 from nerfstudio.data.utils.nerfstudio_collate import nerfstudio_collate
 
 

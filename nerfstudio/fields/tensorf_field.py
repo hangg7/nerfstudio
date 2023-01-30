@@ -24,8 +24,15 @@ from torchtyping import TensorType
 
 from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.data.scene_box import SceneBox
-from nerfstudio.field_components.encodings import Encoding, Identity, SHEncoding
-from nerfstudio.field_components.field_heads import FieldHeadNames, RGBFieldHead
+from nerfstudio.field_components.encodings import (
+    Encoding,
+    Identity,
+    SHEncoding,
+)
+from nerfstudio.field_components.field_heads import (
+    FieldHeadNames,
+    RGBFieldHead,
+)
 from nerfstudio.field_components.mlp import MLP
 from nerfstudio.fields.base_field import Field
 
@@ -64,7 +71,10 @@ class TensoRFField(Field):
         self.color_encoding = color_encoding
 
         self.mlp_head = MLP(
-            in_dim=appearance_dim + 3 + self.direction_encoding.get_out_dim() + self.feature_encoding.get_out_dim(),
+            in_dim=appearance_dim
+            + 3
+            + self.direction_encoding.get_out_dim()
+            + self.feature_encoding.get_out_dim(),
             num_layers=head_mlp_num_layers,
             layer_width=head_mlp_layer_width,
             activation=nn.ReLU(),
@@ -76,15 +86,25 @@ class TensoRFField(Field):
         if self.use_sh:
             self.sh = SHEncoding(sh_levels)
             self.B = nn.Linear(
-                in_features=self.color_encoding.get_out_dim(), out_features=3 * self.sh.get_out_dim(), bias=False
+                in_features=self.color_encoding.get_out_dim(),
+                out_features=3 * self.sh.get_out_dim(),
+                bias=False,
             )
         else:
-            self.B = nn.Linear(in_features=self.color_encoding.get_out_dim(), out_features=appearance_dim, bias=False)
+            self.B = nn.Linear(
+                in_features=self.color_encoding.get_out_dim(),
+                out_features=appearance_dim,
+                bias=False,
+            )
 
-        self.field_output_rgb = RGBFieldHead(in_dim=self.mlp_head.get_out_dim(), activation=nn.Sigmoid())
+        self.field_output_rgb = RGBFieldHead(
+            in_dim=self.mlp_head.get_out_dim(), activation=nn.Sigmoid()
+        )
 
     def get_density(self, ray_samples: RaySamples):
-        positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
+        positions = SceneBox.get_normalized_positions(
+            ray_samples.frustums.get_positions(), self.aabb
+        )
         positions = positions * 2 - 1
         density = self.density_encoding(positions)
         density_enc = torch.sum(density, dim=-1)[:, :, None]
@@ -92,9 +112,15 @@ class TensoRFField(Field):
         density_enc = relu(density_enc)
         return density_enc
 
-    def get_outputs(self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None) -> TensorType:
+    def get_outputs(
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
+    ) -> TensorType:
         d = ray_samples.frustums.directions
-        positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
+        positions = SceneBox.get_normalized_positions(
+            ray_samples.frustums.get_positions(), self.aabb
+        )
         positions = positions * 2 - 1
         rgb_features = self.color_encoding(positions)
         rgb_features = self.B(rgb_features)
@@ -104,7 +130,9 @@ class TensoRFField(Field):
 
         if self.use_sh:
             sh_mult = self.sh(d)[:, :, None]
-            rgb_sh = rgb_features.view(sh_mult.shape[0], sh_mult.shape[1], 3, sh_mult.shape[-1])
+            rgb_sh = rgb_features.view(
+                sh_mult.shape[0], sh_mult.shape[1], 3, sh_mult.shape[-1]
+            )
             rgb = torch.relu(torch.sum(sh_mult * rgb_sh, dim=-1) + 0.5)
         else:
             out = self.mlp_head(torch.cat([rgb_features, d, rgb_features_encoded, d_encoded], dim=-1))  # type: ignore
@@ -120,9 +148,13 @@ class TensoRFField(Field):
         bg_color: Optional[TensorType] = None,
     ):
         if compute_normals is True:
-            raise ValueError("Surface normals are not currently supported with TensoRF")
+            raise ValueError(
+                "Surface normals are not currently supported with TensoRF"
+            )
         if mask is not None and bg_color is not None:
-            base_density = torch.zeros(ray_samples.shape)[:, :, None].to(mask.device)
+            base_density = torch.zeros(ray_samples.shape)[:, :, None].to(
+                mask.device
+            )
             base_rgb = bg_color.repeat(ray_samples[:, :, None].shape)
             if mask.any():
                 input_rays = ray_samples[mask, :]

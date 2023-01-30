@@ -63,6 +63,7 @@ class RAdamOptimizerConfig(OptimizerConfig):
 
     _target: Type = torch.optim.RAdam
 
+
 class Optimizers:
     """A set of optimizers.
 
@@ -71,7 +72,9 @@ class Optimizers:
         param_groups: A dictionary of parameter groups to optimize.
     """
 
-    def __init__(self, config: Dict[str, Any], param_groups: Dict[str, List[Parameter]]):
+    def __init__(
+        self, config: Dict[str, Any], param_groups: Dict[str, List[Parameter]]
+    ):
         self.config = config
         self.optimizers = {}
         self.schedulers = {}
@@ -82,10 +85,15 @@ class Optimizers:
                 )
                 continue
             lr_init = config[param_group_name]["optimizer"].lr
-            self.optimizers[param_group_name] = config[param_group_name]["optimizer"].setup(params=params)
+            self.optimizers[param_group_name] = config[param_group_name][
+                "optimizer"
+            ].setup(params=params)
             if config[param_group_name]["scheduler"]:
-                self.schedulers[param_group_name] = config[param_group_name]["scheduler"].setup(
-                    optimizer=self.optimizers[param_group_name], lr_init=lr_init
+                self.schedulers[param_group_name] = config[param_group_name][
+                    "scheduler"
+                ].setup(
+                    optimizer=self.optimizers[param_group_name],
+                    lr_init=lr_init,
                 )
 
     def optimizer_step(self, param_group_name: str) -> None:
@@ -135,7 +143,9 @@ class Optimizers:
             scheduler.step()
             # TODO(ethan): clean this up. why is there indexing into a list?
             lr = scheduler.get_last_lr()[0]
-            writer.put_scalar(name=f"learning_rate/{param_group_name}", scalar=lr, step=step)
+            writer.put_scalar(
+                name=f"learning_rate/{param_group_name}", scalar=lr, step=step
+            )
 
     def load_optimizers(self, loaded_state: Dict[str, Any]) -> None:
         """Helper to load the optimizer state from previous checkpoint

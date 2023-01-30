@@ -5,14 +5,23 @@ Benchmarking script for nerfstudio paper.
 - nerfacto ablations
 """
 
-from nerfstudio.utils.scripts import run_command
+import threading
+import time
+from pathlib import Path
 
 import GPUtil
-from pathlib import Path
-import time
-import threading
 
-mipnerf360_capture_names = ["bicycle", "garden", "stump", "room", "counter", "kitchen", "bonsai"]  # 7 splits
+from nerfstudio.utils.scripts import run_command
+
+mipnerf360_capture_names = [
+    "bicycle",
+    "garden",
+    "stump",
+    "room",
+    "counter",
+    "kitchen",
+    "bonsai",
+]  # 7 splits
 # mipnerf360_capture_names = ["bicycle", "bonsai"]  # 7 splits
 # 1/8 of input images used in the paper = 0.125 -> 1 - this = 0.875
 mipnerf360_table_rows = [
@@ -45,7 +54,11 @@ ablations_capture_names = [
 ]
 
 ablations_table_rows = [
-    ("nerfacto", "nerfacto", "--pipeline.eval_optimize_cameras True --pipeline.eval_optimize_appearance True"),
+    (
+        "nerfacto",
+        "nerfacto",
+        "--pipeline.eval_optimize_cameras True --pipeline.eval_optimize_appearance True",
+    ),
     (
         "w/o-pose",
         "nerfacto",
@@ -122,7 +135,9 @@ def main(capture_names, table_rows, data_path: Path = Path("data/nerfstudio")):
 
         # check which GPUs have capacity to run these jobs
         """Returns the available GPUs."""
-        gpu_devices_available = GPUtil.getAvailable(order="first", limit=10, maxMemory=0.1)
+        gpu_devices_available = GPUtil.getAvailable(
+            order="first", limit=10, maxMemory=0.1
+        )
 
         print("Available GPUs: ", gpu_devices_available)
 
@@ -154,5 +169,9 @@ def main(capture_names, table_rows, data_path: Path = Path("data/nerfstudio")):
 
 if __name__ == "__main__":
     # pass
-    main(mipnerf360_capture_names, mipnerf360_table_rows, data_path=Path("data/nerfstudio-data-mipnerf360"))
+    main(
+        mipnerf360_capture_names,
+        mipnerf360_table_rows,
+        data_path=Path("data/nerfstudio-data-mipnerf360"),
+    )
     # main(ablations_capture_names, ablations_table_rows)

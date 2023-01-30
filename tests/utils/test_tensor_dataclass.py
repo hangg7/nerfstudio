@@ -168,7 +168,9 @@ def test_nested_class():
 
 def test_iter():
     """Test iterating over tensor dataclass"""
-    tensor_dataclass = DummyTensorDataclass(a=torch.ones((3, 4, 5)), b=torch.ones((3, 4, 5)))
+    tensor_dataclass = DummyTensorDataclass(
+        a=torch.ones((3, 4, 5)), b=torch.ones((3, 4, 5))
+    )
     for batch in tensor_dataclass:
         assert batch.shape == (4,)
         assert batch.a.shape == (4, 5)

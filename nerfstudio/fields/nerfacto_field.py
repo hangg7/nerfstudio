@@ -29,7 +29,11 @@ from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
 from nerfstudio.field_components.embedding import Embedding
-from nerfstudio.field_components.encodings import Encoding, HashEncoding, SHEncoding
+from nerfstudio.field_components.encodings import (
+    Encoding,
+    HashEncoding,
+    SHEncoding,
+)
 from nerfstudio.field_components.field_heads import (
     DensityFieldHead,
     FieldHead,
@@ -118,7 +122,9 @@ class TCNNNerfactoField(Field):
         self.num_images = num_images
         self.num_eval_images = num_eval_images
         self.appearance_embedding_dim = appearance_embedding_dim
-        self.use_average_appearance_embedding = use_average_appearance_embedding
+        self.use_average_appearance_embedding = (
+            use_average_appearance_embedding
+        )
         self.use_eval_appearance_embedding = use_eval_appearance_embedding
         self.use_appearance_embedding = use_appearance_embedding
         self.use_transient_embedding = use_transient_embedding
@@ -126,12 +132,16 @@ class TCNNNerfactoField(Field):
         self.use_pred_normals = use_pred_normals
 
         if self.use_appearance_embedding:
-            self.embedding_appearance = Embedding(self.num_images, self.appearance_embedding_dim)
+            self.embedding_appearance = Embedding(
+                self.num_images, self.appearance_embedding_dim
+            )
             self.embedding_appearance_eval = None
 
         base_res = 16
         features_per_level = 2
-        growth_factor = np.exp((np.log(max_res) - np.log(base_res)) / (num_levels - 1))
+        growth_factor = np.exp(
+            (np.log(max_res) - np.log(base_res)) / (num_levels - 1)
+        )
 
         self.direction_encoding = tcnn.Encoding(
             n_input_dims=3,
@@ -169,7 +179,9 @@ class TCNNNerfactoField(Field):
         # transients
         if self.use_transient_embedding:
             self.transient_embedding_dim = transient_embedding_dim
-            self.embedding_transient = Embedding(self.num_images, self.transient_embedding_dim)
+            self.embedding_transient = Embedding(
+                self.num_images, self.transient_embedding_dim
+            )
             self.mlp_transient = tcnn.Network(
                 n_input_dims=self.geo_feat_dim + self.transient_embedding_dim,
                 n_output_dims=hidden_dim_transient,
@@ -181,9 +193,15 @@ class TCNNNerfactoField(Field):
                     "n_hidden_layers": num_layers_transient - 1,
                 },
             )
-            self.field_head_transient_uncertainty = UncertaintyFieldHead(in_dim=self.mlp_transient.n_output_dims)
-            self.field_head_transient_rgb = TransientRGBFieldHead(in_dim=self.mlp_transient.n_output_dims)
-            self.field_head_transient_density = TransientDensityFieldHead(in_dim=self.mlp_transient.n_output_dims)
+            self.field_head_transient_uncertainty = UncertaintyFieldHead(
+                in_dim=self.mlp_transient.n_output_dims
+            )
+            self.field_head_transient_rgb = TransientRGBFieldHead(
+                in_dim=self.mlp_transient.n_output_dims
+            )
+            self.field_head_transient_density = TransientDensityFieldHead(
+                in_dim=self.mlp_transient.n_output_dims
+            )
 
         # semantics
         if self.use_semantics:
@@ -199,13 +217,15 @@ class TCNNNerfactoField(Field):
                 },
             )
             self.field_head_semantics = SemanticFieldHead(
-                in_dim=self.mlp_semantics.n_output_dims, num_classes=num_semantic_classes
+                in_dim=self.mlp_semantics.n_output_dims,
+                num_classes=num_semantic_classes,
             )
 
         # predicted normals
         if self.use_pred_normals:
             self.mlp_pred_normals = tcnn.Network(
-                n_input_dims=self.geo_feat_dim + self.position_encoding.n_output_dims,
+                n_input_dims=self.geo_feat_dim
+                + self.position_encoding.n_output_dims,
                 n_output_dims=hidden_dim_transient,
                 network_config={
                     "otype": "FullyFusedMLP",
@@ -215,11 +235,19 @@ class TCNNNerfactoField(Field):
                     "n_hidden_layers": 2,
                 },
             )
-            self.field_head_pred_normals = PredNormalsFieldHead(in_dim=self.mlp_pred_normals.n_output_dims)
+            self.field_head_pred_normals = PredNormalsFieldHead(
+                in_dim=self.mlp_pred_normals.n_output_dims
+            )
 
-        appearance_embedding_dim = self.appearance_embedding_dim if self.use_appearance_embedding else 0
+        appearance_embedding_dim = (
+            self.appearance_embedding_dim
+            if self.use_appearance_embedding
+            else 0
+        )
         self.mlp_head = tcnn.Network(
-            n_input_dims=self.direction_encoding.n_output_dims + self.geo_feat_dim + appearance_embedding_dim,
+            n_input_dims=self.direction_encoding.n_output_dims
+            + self.geo_feat_dim
+            + appearance_embedding_dim,
             n_output_dims=3,
             network_config={
                 "otype": "FullyFusedMLP",
@@ -237,13 +265,17 @@ class TCNNNerfactoField(Field):
             positions = self.spatial_distortion(positions)
             positions = (positions + 2.0) / 4.0
         else:
-            positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
+            positions = SceneBox.get_normalized_positions(
+                ray_samples.frustums.get_positions(), self.aabb
+            )
         self._sample_locations = positions
         if not self._sample_locations.requires_grad:
             self._sample_locations.requires_grad = True
         positions_flat = positions.view(-1, 3)
         h = self.mlp_base(positions_flat).view(*ray_samples.frustums.shape, -1)
-        density_before_activation, base_mlp_out = torch.split(h, [1, self.geo_feat_dim], dim=-1)
+        density_before_activation, base_mlp_out = torch.split(
+            h, [1, self.geo_feat_dim], dim=-1
+        )
         self._density_before_activation = density_before_activation
 
         # Rectifying the density with an exponential is much more stable than a ReLU or
@@ -255,14 +287,26 @@ class TCNNNerfactoField(Field):
     def initialize_embedding_appearance_eval(self):
         """Initializes the appearance embeddings for per-image evaluation.
         We initialize them to the mean of the appearance embeddings for training."""
-        assert self.num_eval_images and self.num_eval_images > 0, "Number of eval images is not set or is 0."
+        assert (
+            self.num_eval_images and self.num_eval_images > 0
+        ), "Number of eval images is not set or is 0."
         device = self.aabb.device
-        self.embedding_appearance_eval = Embedding(self.num_eval_images, self.appearance_embedding_dim)
-        ones = torch.ones_like(self.embedding_appearance_eval.embedding.weight).to(device)
+        self.embedding_appearance_eval = Embedding(
+            self.num_eval_images, self.appearance_embedding_dim
+        )
+        ones = torch.ones_like(
+            self.embedding_appearance_eval.embedding.weight
+        ).to(device)
         mean = self.embedding_appearance.mean(dim=0)
-        self.embedding_appearance_eval.embedding.weight = torch.nn.Parameter(ones * mean)
+        self.embedding_appearance_eval.embedding.weight = torch.nn.Parameter(
+            ones * mean
+        )
 
-    def get_outputs(self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None):
+    def get_outputs(
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
+    ):
         assert density_embedding is not None
         outputs = {}
         if ray_samples.camera_indices is None:
@@ -280,15 +324,19 @@ class TCNNNerfactoField(Field):
                 embedded_appearance = self.embedding_appearance(camera_indices)
             elif self.embedding_appearance_eval:
                 # if eval appearance embedding exists, use it
-                embedded_appearance = self.embedding_appearance_eval(camera_indices)
+                embedded_appearance = self.embedding_appearance_eval(
+                    camera_indices
+                )
             elif self.use_average_appearance_embedding:
                 # otherwise, if enabled, use the average appearance embedding
                 embedded_appearance = torch.ones(
-                    (*directions.shape[:-1], self.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.appearance_embedding_dim),
+                    device=directions.device,
                 ) * self.embedding_appearance.mean(dim=0)
             else:
                 embedded_appearance = torch.zeros(
-                    (*directions.shape[:-1], self.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.appearance_embedding_dim),
+                    device=directions.device,
                 )
 
         # transients
@@ -301,10 +349,20 @@ class TCNNNerfactoField(Field):
                 ],
                 dim=-1,
             )
-            x = self.mlp_transient(transient_input).view(*outputs_shape, -1).to(directions)
-            outputs[FieldHeadNames.UNCERTAINTY] = self.field_head_transient_uncertainty(x)
-            outputs[FieldHeadNames.TRANSIENT_RGB] = self.field_head_transient_rgb(x)
-            outputs[FieldHeadNames.TRANSIENT_DENSITY] = self.field_head_transient_density(x)
+            x = (
+                self.mlp_transient(transient_input)
+                .view(*outputs_shape, -1)
+                .to(directions)
+            )
+            outputs[
+                FieldHeadNames.UNCERTAINTY
+            ] = self.field_head_transient_uncertainty(x)
+            outputs[
+                FieldHeadNames.TRANSIENT_RGB
+            ] = self.field_head_transient_rgb(x)
+            outputs[
+                FieldHeadNames.TRANSIENT_DENSITY
+            ] = self.field_head_transient_density(x)
 
         # semantics
         if self.use_semantics:
@@ -315,7 +373,11 @@ class TCNNNerfactoField(Field):
                 ],
                 dim=-1,
             )
-            x = self.mlp_semantics(semantics_input).view(*outputs_shape, -1).to(directions)
+            x = (
+                self.mlp_semantics(semantics_input)
+                .view(*outputs_shape, -1)
+                .to(directions)
+            )
             outputs[FieldHeadNames.SEMANTICS] = self.field_head_semantics(x)
 
         # predicted normals
@@ -323,14 +385,28 @@ class TCNNNerfactoField(Field):
             positions = ray_samples.frustums.get_positions()
 
             positions_flat = self.position_encoding(positions.view(-1, 3))
-            pred_normals_inp = torch.cat([positions_flat, density_embedding.view(-1, self.geo_feat_dim)], dim=-1)
+            pred_normals_inp = torch.cat(
+                [
+                    positions_flat,
+                    density_embedding.view(-1, self.geo_feat_dim),
+                ],
+                dim=-1,
+            )
 
-            x = self.mlp_pred_normals(pred_normals_inp).view(*outputs_shape, -1).to(directions)
-            outputs[FieldHeadNames.PRED_NORMALS] = self.field_head_pred_normals(x)
+            x = (
+                self.mlp_pred_normals(pred_normals_inp)
+                .view(*outputs_shape, -1)
+                .to(directions)
+            )
+            outputs[
+                FieldHeadNames.PRED_NORMALS
+            ] = self.field_head_pred_normals(x)
 
         h_list = [d, density_embedding.view(-1, self.geo_feat_dim)]
         if self.use_appearance_embedding:
-            h_list += [embedded_appearance.view(-1, self.appearance_embedding_dim)]
+            h_list += [
+                embedded_appearance.view(-1, self.appearance_embedding_dim)
+            ]
         h = torch.cat(
             h_list,
             dim=-1,
@@ -366,7 +442,9 @@ class TorchNerfactoField(Field):
         self.spatial_distortion = spatial_distortion
         self.num_images = num_images
         self.appearance_embedding_dim = appearance_embedding_dim
-        self.embedding_appearance = Embedding(self.num_images, self.appearance_embedding_dim)
+        self.embedding_appearance = Embedding(
+            self.num_images, self.appearance_embedding_dim
+        )
 
         self.position_encoding = position_encoding
         self.direction_encoding = direction_encoding
@@ -380,13 +458,17 @@ class TorchNerfactoField(Field):
         )
 
         self.mlp_head = MLP(
-            in_dim=self.mlp_base.get_out_dim() + self.direction_encoding.get_out_dim() + self.appearance_embedding_dim,
+            in_dim=self.mlp_base.get_out_dim()
+            + self.direction_encoding.get_out_dim()
+            + self.appearance_embedding_dim,
             num_layers=head_mlp_num_layers,
             layer_width=head_mlp_layer_width,
             out_activation=nn.ReLU(),
         )
 
-        self.field_output_density = DensityFieldHead(in_dim=self.mlp_base.get_out_dim())
+        self.field_output_density = DensityFieldHead(
+            in_dim=self.mlp_base.get_out_dim()
+        )
         self.field_heads = nn.ModuleList(field_heads)
         for field_head in self.field_heads:
             field_head.set_in_dim(self.mlp_head.get_out_dim())  # type: ignore
@@ -403,7 +485,9 @@ class TorchNerfactoField(Field):
         return density, base_mlp_out
 
     def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType] = None,
     ) -> Dict[FieldHeadNames, TensorType]:
 
         outputs_shape = ray_samples.frustums.directions.shape[:-1]
@@ -421,13 +505,17 @@ class TorchNerfactoField(Field):
 
         outputs = {}
         for field_head in self.field_heads:
-            encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
+            encoded_dir = self.direction_encoding(
+                ray_samples.frustums.directions
+            )
             mlp_out = self.mlp_head(
                 torch.cat(
                     [
                         encoded_dir,
                         density_embedding,  # type:ignore
-                        embedded_appearance.view(-1, self.appearance_embedding_dim),
+                        embedded_appearance.view(
+                            -1, self.appearance_embedding_dim
+                        ),
                     ],
                     dim=-1,  # type:ignore
                 )
@@ -436,4 +524,7 @@ class TorchNerfactoField(Field):
         return outputs
 
 
-field_implementation_to_class = {"tcnn": TCNNNerfactoField, "torch": TorchNerfactoField}
+field_implementation_to_class = {
+    "tcnn": TCNNNerfactoField,
+    "torch": TorchNerfactoField,
+}

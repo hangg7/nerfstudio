@@ -9,7 +9,12 @@ from rich.style import Style
 
 CONSOLE = Console(width=120)
 
-LOCAL_TESTS = ["Run license checks", "Run Black", "Python Pylint", "Test with pytest"]
+LOCAL_TESTS = [
+    "Run license checks",
+    "Run Black",
+    "Python Pylint",
+    "Test with pytest",
+]
 
 
 def run_command(command: str) -> None:

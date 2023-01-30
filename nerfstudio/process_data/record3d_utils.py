@@ -28,7 +28,12 @@ from nerfstudio.utils import io
 CONSOLE = Console(width=120)
 
 
-def record3d_to_json(images_paths: List[Path], metadata_path: Path, output_dir: Path, indices: np.ndarray) -> int:
+def record3d_to_json(
+    images_paths: List[Path],
+    metadata_path: Path,
+    output_dir: Path,
+    indices: np.ndarray,
+) -> int:
     """Converts Record3D's metadata and image paths to a JSON file.
 
     Args:
@@ -47,14 +52,19 @@ def record3d_to_json(images_paths: List[Path], metadata_path: Path, output_dir: 
 
     poses_data = np.array(metadata_dict["poses"])  # (N, 3, 4)
     camera_to_worlds = np.concatenate(
-        [Rotation.from_quat(poses_data[:, :4]).as_matrix(), poses_data[:, 4:, None]],
+        [
+            Rotation.from_quat(poses_data[:, :4]).as_matrix(),
+            poses_data[:, 4:, None],
+        ],
         axis=-1,
     ).astype(np.float32)
     camera_to_worlds = camera_to_worlds[indices]
 
     homogeneous_coord = np.zeros_like(camera_to_worlds[..., :1, :])
     homogeneous_coord[..., :, 3] = 1
-    camera_to_worlds = np.concatenate([camera_to_worlds, homogeneous_coord], -2)
+    camera_to_worlds = np.concatenate(
+        [camera_to_worlds, homogeneous_coord], -2
+    )
 
     frames = []
     for i, im_path in enumerate(images_paths):

@@ -73,7 +73,11 @@ def convert_insta360_to_images(
         A tuple containing summary of the conversion and the number of extracted frames.
     """
 
-    with status(msg="Converting video to images...", spinner="bouncingBall", verbose=verbose):
+    with status(
+        msg="Converting video to images...",
+        spinner="bouncingBall",
+        verbose=verbose,
+    ):
         # delete existing images in folder
         for img in image_dir.glob("*.png"):
             if verbose:
@@ -83,10 +87,14 @@ def convert_insta360_to_images(
         num_frames_front = get_num_frames_in_video(video_front)
         num_frames_back = get_num_frames_in_video(video_back)
         if num_frames_front == 0:
-            CONSOLE.print(f"[bold red]Error: Video has no frames: {video_front}")
+            CONSOLE.print(
+                f"[bold red]Error: Video has no frames: {video_front}"
+            )
             sys.exit(1)
         if num_frames_back == 0:
-            CONSOLE.print(f"[bold red]Error: Video has no frames: {video_front}")
+            CONSOLE.print(
+                f"[bold red]Error: Video has no frames: {video_front}"
+            )
             sys.exit(1)
 
         spacing = num_frames_front // (num_frames_target // 2)
@@ -94,7 +102,9 @@ def convert_insta360_to_images(
         if spacing > 1:
             vf_cmds = [f"thumbnail={spacing}", "setpts=N/TB"]
         else:
-            CONSOLE.print("[bold red]Can't satify requested number of frames. Extracting all frames.")
+            CONSOLE.print(
+                "[bold red]Can't satify requested number of frames. Extracting all frames."
+            )
 
         vf_cmds.append(f"crop=iw*{crop_percentage}:ih*{crop_percentage}")
 
@@ -102,20 +112,22 @@ def convert_insta360_to_images(
         back_vf_cmds = vf_cmds + ["transpose=1"]
 
         front_ffmpeg_cmd = f"ffmpeg -i {video_front} -vf {','.join(front_vf_cmds)} -r 1 {image_dir / 'frame_%05d.png'}"
-        back_ffmpeg_cmd = (
-            f"ffmpeg -i {video_back} -vf {','.join(back_vf_cmds)} -r 1 {image_dir / 'back_frame_%05d.png'}"
-        )
+        back_ffmpeg_cmd = f"ffmpeg -i {video_back} -vf {','.join(back_vf_cmds)} -r 1 {image_dir / 'back_frame_%05d.png'}"
 
         run_command(front_ffmpeg_cmd, verbose=verbose)
         run_command(back_ffmpeg_cmd, verbose=verbose)
 
         num_extracted_front_frames = len(list(image_dir.glob("frame*.png")))
         for i, img in enumerate(image_dir.glob("back_frame_*.png")):
-            img.rename(image_dir / f"frame_{i+1+num_extracted_front_frames:05d}.png")
+            img.rename(
+                image_dir / f"frame_{i+1+num_extracted_front_frames:05d}.png"
+            )
 
     num_final_frames = len(list(image_dir.glob("*.png")))
     summary_log = []
-    summary_log.append(f"Starting with {num_frames_front + num_frames_back} video frames")
+    summary_log.append(
+        f"Starting with {num_frames_front + num_frames_back} video frames"
+    )
     summary_log.append(f"We extracted {num_final_frames} images")
     CONSOLE.log("[bold green]:tada: Done converting insta360 to images.")
 
@@ -142,7 +154,11 @@ def convert_insta360_single_file_to_images(
         A tuple containing summary of the conversion and the number of extracted frames.
     """
 
-    with status(msg="Converting video to images...", spinner="bouncingBall", verbose=verbose):
+    with status(
+        msg="Converting video to images...",
+        spinner="bouncingBall",
+        verbose=verbose,
+    ):
         # delete existing images in folder
         for img in image_dir.glob("*.png"):
             if verbose:
@@ -159,7 +175,9 @@ def convert_insta360_single_file_to_images(
         if spacing > 1:
             vf_cmds = [f"thumbnail={spacing}", "setpts=N/TB"]
         else:
-            CONSOLE.print("[bold red]Can't satify requested number of frames. Extracting all frames.")
+            CONSOLE.print(
+                "[bold red]Can't satify requested number of frames. Extracting all frames."
+            )
 
         vf_cmds_back = vf_cmds.copy()
         vf_cmds_front = vf_cmds.copy()

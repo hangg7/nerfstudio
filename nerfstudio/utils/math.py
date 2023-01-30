@@ -20,7 +20,9 @@ import torch
 from torchtyping import TensorType
 
 
-def components_from_spherical_harmonics(levels: int, directions: TensorType[..., 3]) -> TensorType[..., "components"]:
+def components_from_spherical_harmonics(
+    levels: int, directions: TensorType[..., 3]
+) -> TensorType[..., "components"]:
     """
     Returns value for each component of spherical harmonics.
 
@@ -29,10 +31,14 @@ def components_from_spherical_harmonics(levels: int, directions: TensorType[...,
         directions: Spherical hamonic coefficients
     """
     num_components = levels**2
-    components = torch.zeros((*directions.shape[:-1], num_components), device=directions.device)
+    components = torch.zeros(
+        (*directions.shape[:-1], num_components), device=directions.device
+    )
 
     assert 1 <= levels <= 5, f"SH levels must be in [1,4], got {levels}"
-    assert directions.shape[-1] == 3, f"Direction input should have three dimensions. Got {directions.shape[-1]}"
+    assert (
+        directions.shape[-1] == 3
+    ), f"Direction input should have three dimensions. Got {directions.shape[-1]}"
 
     x = directions[..., 0]
     y = directions[..., 1]
@@ -75,11 +81,15 @@ def components_from_spherical_harmonics(levels: int, directions: TensorType[...,
         components[..., 17] = 1.7701307697799304 * y * z * (3 * xx - yy)
         components[..., 18] = 0.9461746957575601 * x * y * (7 * zz - 1)
         components[..., 19] = 0.6690465435572892 * y * (7 * zz - 3)
-        components[..., 20] = 0.10578554691520431 * (35 * zz * zz - 30 * zz + 3)
+        components[..., 20] = 0.10578554691520431 * (
+            35 * zz * zz - 30 * zz + 3
+        )
         components[..., 21] = 0.6690465435572892 * x * z * (7 * zz - 3)
         components[..., 22] = 0.47308734787878004 * (xx - yy) * (7 * zz - 1)
         components[..., 23] = 1.7701307697799304 * x * z * (xx - 3 * yy)
-        components[..., 24] = 0.4425326924449826 * (xx * (xx - 3 * yy) - yy * (3 * xx - yy))
+        components[..., 24] = 0.4425326924449826 * (
+            xx * (xx - 3 * yy) - yy * (3 * xx - yy)
+        )
 
     return components
 
@@ -117,10 +127,17 @@ def compute_3d_gaussian(
 
     dir_outer_product = directions[..., :, None] * directions[..., None, :]
     eye = torch.eye(directions.shape[-1], device=directions.device)
-    dir_mag_sq = torch.clamp(torch.sum(directions**2, dim=-1, keepdim=True), min=1e-10)
-    null_outer_product = eye - directions[..., :, None] * (directions / dir_mag_sq)[..., None, :]
+    dir_mag_sq = torch.clamp(
+        torch.sum(directions**2, dim=-1, keepdim=True), min=1e-10
+    )
+    null_outer_product = (
+        eye
+        - directions[..., :, None] * (directions / dir_mag_sq)[..., None, :]
+    )
     dir_cov_diag = dir_variance[..., None] * dir_outer_product[..., :, :]
-    radius_cov_diag = radius_variance[..., None] * null_outer_product[..., :, :]
+    radius_cov_diag = (
+        radius_variance[..., None] * null_outer_product[..., :, :]
+    )
     cov = dir_cov_diag + radius_cov_diag
     return Gaussians(mean=means, cov=cov)
 
@@ -147,7 +164,9 @@ def cylinder_to_gaussian(
     means = origins + directions * ((starts + ends) / 2.0)
     dir_variance = (ends - starts) ** 2 / 12
     radius_variance = radius**2 / 4.0
-    return compute_3d_gaussian(directions, means, dir_variance, radius_variance)
+    return compute_3d_gaussian(
+        directions, means, dir_variance, radius_variance
+    )
 
 
 def conical_frustum_to_gaussian(
@@ -173,10 +192,20 @@ def conical_frustum_to_gaussian(
     """
     mu = (starts + ends) / 2.0
     hw = (ends - starts) / 2.0
-    means = origins + directions * (mu + (2.0 * mu * hw**2.0) / (3.0 * mu**2.0 + hw**2.0))
-    dir_variance = (hw**2) / 3 - (4 / 15) * ((hw**4 * (12 * mu**2 - hw**2)) / (3 * mu**2 + hw**2) ** 2)
-    radius_variance = radius**2 * ((mu**2) / 4 + (5 / 12) * hw**2 - 4 / 15 * (hw**4) / (3 * mu**2 + hw**2))
-    return compute_3d_gaussian(directions, means, dir_variance, radius_variance)
+    means = origins + directions * (
+        mu + (2.0 * mu * hw**2.0) / (3.0 * mu**2.0 + hw**2.0)
+    )
+    dir_variance = (hw**2) / 3 - (4 / 15) * (
+        (hw**4 * (12 * mu**2 - hw**2)) / (3 * mu**2 + hw**2) ** 2
+    )
+    radius_variance = radius**2 * (
+        (mu**2) / 4
+        + (5 / 12) * hw**2
+        - 4 / 15 * (hw**4) / (3 * mu**2 + hw**2)
+    )
+    return compute_3d_gaussian(
+        directions, means, dir_variance, radius_variance
+    )
 
 
 def expected_sin(x_means: torch.Tensor, x_vars: torch.Tensor) -> torch.Tensor:

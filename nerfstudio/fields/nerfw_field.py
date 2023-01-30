@@ -75,8 +75,12 @@ class VanillaNerfWField(Field):
         self.appearance_embedding_dim = appearance_embedding_dim
         self.transient_embedding_dim = transient_embedding_dim
 
-        self.embedding_appearance = Embedding(self.num_images, self.appearance_embedding_dim)
-        self.embedding_transient = Embedding(self.num_images, self.transient_embedding_dim)
+        self.embedding_appearance = Embedding(
+            self.num_images, self.appearance_embedding_dim
+        )
+        self.embedding_transient = Embedding(
+            self.num_images, self.transient_embedding_dim
+        )
 
         self.mlp_base = MLP(
             in_dim=self.position_encoding.get_out_dim(),
@@ -86,7 +90,8 @@ class VanillaNerfWField(Field):
             out_activation=nn.ReLU(),
         )
         self.mlp_transient = MLP(
-            in_dim=self.mlp_base.get_out_dim() + self.embedding_transient.get_out_dim(),
+            in_dim=self.mlp_base.get_out_dim()
+            + self.embedding_transient.get_out_dim(),
             out_dim=base_mlp_layer_width // 2,
             num_layers=4,
             layer_width=base_mlp_layer_width,
@@ -102,23 +107,37 @@ class VanillaNerfWField(Field):
             out_activation=nn.ReLU(),
         )
 
-        self.field_head_density = DensityFieldHead(in_dim=self.mlp_base.get_out_dim())
+        self.field_head_density = DensityFieldHead(
+            in_dim=self.mlp_base.get_out_dim()
+        )
         self.field_head_rgb = RGBFieldHead(in_dim=self.mlp_head.get_out_dim())
 
-        self.field_head_transient_uncertainty = UncertaintyFieldHead(in_dim=self.mlp_transient.get_out_dim())
-        self.field_head_transient_rgb = TransientRGBFieldHead(in_dim=self.mlp_transient.get_out_dim())
-        self.field_head_transient_density = TransientDensityFieldHead(in_dim=self.mlp_transient.get_out_dim())
+        self.field_head_transient_uncertainty = UncertaintyFieldHead(
+            in_dim=self.mlp_transient.get_out_dim()
+        )
+        self.field_head_transient_rgb = TransientRGBFieldHead(
+            in_dim=self.mlp_transient.get_out_dim()
+        )
+        self.field_head_transient_density = TransientDensityFieldHead(
+            in_dim=self.mlp_transient.get_out_dim()
+        )
 
     def get_density(self, ray_samples: RaySamples):
         """Computes and returns the densities."""
-        encoded_xyz = self.position_encoding(ray_samples.frustums.get_positions())
-        encoded_xyz = self.position_encoding(ray_samples.frustums.get_positions())
+        encoded_xyz = self.position_encoding(
+            ray_samples.frustums.get_positions()
+        )
+        encoded_xyz = self.position_encoding(
+            ray_samples.frustums.get_positions()
+        )
         base_mlp_out = self.mlp_base(encoded_xyz)
         density = self.field_head_density(base_mlp_out)
         return density, base_mlp_out
 
     def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType[..., "embedding_size"]] = None
+        self,
+        ray_samples: RaySamples,
+        density_embedding: Optional[TensorType[..., "embedding_size"]] = None,
     ) -> Dict[FieldHeadNames, TensorType]:
         """Returns the outputs of the NeRF-W field.
 
@@ -133,21 +152,31 @@ class VanillaNerfWField(Field):
         encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
         if ray_samples.camera_indices is None:
             raise AttributeError("Camera indices are not provided.")
-        camera_indices = ray_samples.camera_indices.squeeze().to(ray_samples.frustums.origins.device)
+        camera_indices = ray_samples.camera_indices.squeeze().to(
+            ray_samples.frustums.origins.device
+        )
         embedded_appearance = self.embedding_appearance(camera_indices)
         mlp_in = torch.cat([density_embedding, encoded_dir, embedded_appearance], dim=-1)  # type: ignore
         mlp_head_out = self.mlp_head(mlp_in)
-        outputs[self.field_head_rgb.field_head_name] = self.field_head_rgb(mlp_head_out)  # static rgb
+        outputs[self.field_head_rgb.field_head_name] = self.field_head_rgb(
+            mlp_head_out
+        )  # static rgb
         embedded_transient = self.embedding_transient(camera_indices)
         transient_mlp_in = torch.cat([density_embedding, embedded_transient], dim=-1)  # type: ignore
         transient_mlp_out = self.mlp_transient(transient_mlp_in)
-        outputs[self.field_head_transient_uncertainty.field_head_name] = self.field_head_transient_uncertainty(
+        outputs[
+            self.field_head_transient_uncertainty.field_head_name
+        ] = self.field_head_transient_uncertainty(
             transient_mlp_out
         )  # uncertainty
-        outputs[self.field_head_transient_rgb.field_head_name] = self.field_head_transient_rgb(
+        outputs[
+            self.field_head_transient_rgb.field_head_name
+        ] = self.field_head_transient_rgb(
             transient_mlp_out
         )  # transient rgb
-        outputs[self.field_head_transient_density.field_head_name] = self.field_head_transient_density(
+        outputs[
+            self.field_head_transient_density.field_head_name
+        ] = self.field_head_transient_density(
             transient_mlp_out
         )  # transient density
         return outputs

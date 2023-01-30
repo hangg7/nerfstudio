@@ -34,7 +34,9 @@ def main(
         viewer,
         log_filename=log_base_dir / viewer.relative_log_filename,
     )
-    dataset = InputDataset(dataparser.setup().get_dataparser_outputs(split="train"))
+    dataset = InputDataset(
+        dataparser.setup().get_dataparser_outputs(split="train")
+    )
     viewer_state.init_scene(dataset=dataset, start_train=False)
     CONSOLE.log("Please refresh and load page at: %s", viewer_state.viewer_url)
     time.sleep(30)  # allowing time to refresh page

@@ -53,7 +53,10 @@ from nerfstudio.model_components.renderers import (
     NormalsRenderer,
     RGBRenderer,
 )
-from nerfstudio.model_components.scene_colliders import NearFarCollider, AABBBoxCollider
+from nerfstudio.model_components.scene_colliders import (
+    AABBBoxCollider,
+    NearFarCollider,
+)
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps, colors
 
@@ -91,8 +94,18 @@ class NerfactoModelConfig(ModelConfig):
     """Use the same proposal network. Otherwise use different ones."""
     proposal_net_args_list: List[Dict] = field(
         default_factory=lambda: [
-            {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 64},
-            {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 256},
+            {
+                "hidden_dim": 16,
+                "log2_hashmap_size": 17,
+                "num_levels": 5,
+                "max_res": 64,
+            },
+            {
+                "hidden_dim": 16,
+                "log2_hashmap_size": 17,
+                "num_levels": 5,
+                "max_res": 256,
+            },
         ]
     )
     """Arguments for the proposal density fields."""
@@ -122,6 +135,9 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to use scene contraction or not."""
     scene_contraction_norm: Literal["inf", "l2"] = "inf"
     """Which norm to use for the scene contraction."""
+    init_sampler_type: Literal[
+        "lindisp", "uniform_lindisp"
+    ] = "uniform_lindisp"
 
 
 class NerfactoModel(Model):
@@ -172,23 +188,37 @@ class NerfactoModel(Model):
             # assert len(self.config.proposal_net_args_list) == 1, "Only one proposal network is allowed."
             # using the last defined proposal network
             prop_net_args = self.config.proposal_net_args_list[-1]
-            network = HashMLPDensityField(self.scene_box.aabb, spatial_distortion=scene_contraction, **prop_net_args)
+            network = HashMLPDensityField(
+                self.scene_box.aabb,
+                spatial_distortion=scene_contraction,
+                **prop_net_args,
+            )
             self.proposal_networks.append(network)
-            self.density_fns.extend([network.density_fn for _ in range(num_prop_nets)])
+            self.density_fns.extend(
+                [network.density_fn for _ in range(num_prop_nets)]
+            )
         else:
             for i in range(num_prop_nets):
-                prop_net_args = self.config.proposal_net_args_list[min(i, len(self.config.proposal_net_args_list) - 1)]
+                prop_net_args = self.config.proposal_net_args_list[
+                    min(i, len(self.config.proposal_net_args_list) - 1)
+                ]
                 network = HashMLPDensityField(
                     self.scene_box.aabb,
                     spatial_distortion=scene_contraction,
                     **prop_net_args,
                 )
                 self.proposal_networks.append(network)
-            self.density_fns.extend([network.density_fn for network in self.proposal_networks])
+            self.density_fns.extend(
+                [network.density_fn for network in self.proposal_networks]
+            )
 
         # Samplers
         update_schedule = lambda step: np.clip(
-            np.interp(step, [0, self.config.proposal_warmup], [0, self.config.proposal_update_every]),
+            np.interp(
+                step,
+                [0, self.config.proposal_warmup],
+                [0, self.config.proposal_update_every],
+            ),
             1,
             self.config.proposal_update_every,
         )
@@ -198,17 +228,23 @@ class NerfactoModel(Model):
             num_proposal_network_iterations=self.config.num_proposal_iterations,
             single_jitter=self.config.use_single_jitter,
             update_sched=update_schedule,
+            init_sampler_type=self.config.init_sampler_type,
         )
 
         # Collider
         if not self.config.use_bounded:
-            self.collider = NearFarCollider(near_plane=self.config.near_plane, far_plane=self.config.far_plane)
+            self.collider = NearFarCollider(
+                near_plane=self.config.near_plane,
+                far_plane=self.config.far_plane,
+            )
         else:
             # this will only sample inside the the bounding box
             self.collider = AABBBoxCollider(scene_box=self.scene_box)
 
         # renderers
-        self.renderer_rgb = RGBRenderer(background_color=self.config.background_color)
+        self.renderer_rgb = RGBRenderer(
+            background_color=self.config.background_color
+        )
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer()
         self.renderer_normals = NormalsRenderer()
@@ -219,11 +255,15 @@ class NerfactoModel(Model):
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
         self.ssim = structural_similarity_index_measure
-        self.lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg', normalize=True)
+        self.lpips = LearnedPerceptualImagePatchSimilarity(
+            net_type="vgg", normalize=True
+        )
 
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
-        param_groups["proposal_networks"] = list(self.proposal_networks.parameters())
+        param_groups["proposal_networks"] = list(
+            self.proposal_networks.parameters()
+        )
         param_groups["fields"] = list(self.field.parameters())
         return param_groups
 
@@ -239,19 +279,25 @@ class NerfactoModel(Model):
                 # https://arxiv.org/pdf/2111.12077.pdf eq. 18
                 train_frac = np.clip(step / N, 0, 1)
                 bias = lambda x, b: (b * x) / ((b - 1) * x + 1)
-                anneal = bias(train_frac, self.config.proposal_weights_anneal_slope)
+                anneal = bias(
+                    train_frac, self.config.proposal_weights_anneal_slope
+                )
                 self.proposal_sampler.set_anneal(anneal)
 
             callbacks.append(
                 TrainingCallback(
-                    where_to_run=[TrainingCallbackLocation.BEFORE_TRAIN_ITERATION],
+                    where_to_run=[
+                        TrainingCallbackLocation.BEFORE_TRAIN_ITERATION
+                    ],
                     update_every_num_iters=1,
                     func=set_anneal,
                 )
             )
             callbacks.append(
                 TrainingCallback(
-                    where_to_run=[TrainingCallbackLocation.AFTER_TRAIN_ITERATION],
+                    where_to_run=[
+                        TrainingCallbackLocation.AFTER_TRAIN_ITERATION
+                    ],
                     update_every_num_iters=1,
                     func=self.proposal_sampler.step_cb,
                 )
@@ -259,13 +305,21 @@ class NerfactoModel(Model):
         return callbacks
 
     def get_outputs(self, ray_bundle: RayBundle):
-        ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
-        field_outputs = self.field(ray_samples, compute_normals=self.config.predict_normals)
-        weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+        ray_samples, weights_list, ray_samples_list = self.proposal_sampler(
+            ray_bundle, density_fns=self.density_fns
+        )
+        field_outputs = self.field(
+            ray_samples, compute_normals=self.config.predict_normals
+        )
+        weights = ray_samples.get_weights(
+            field_outputs[FieldHeadNames.DENSITY]
+        )
         weights_list.append(weights)
         ray_samples_list.append(ray_samples)
 
-        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+        rgb = self.renderer_rgb(
+            rgb=field_outputs[FieldHeadNames.RGB], weights=weights
+        )
         depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
         accumulation = self.renderer_accumulation(weights=weights)
 
@@ -276,8 +330,12 @@ class NerfactoModel(Model):
         }
 
         if self.config.predict_normals:
-            outputs["normals"] = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
-            outputs["pred_normals"] = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
+            outputs["normals"] = self.renderer_normals(
+                normals=field_outputs[FieldHeadNames.NORMALS], weights=weights
+            )
+            outputs["pred_normals"] = self.renderer_normals(
+                field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights
+            )
 
         # These use a lot of GPU memory, so we avoid storing them for eval.
         if self.training:
@@ -286,7 +344,9 @@ class NerfactoModel(Model):
 
         if self.training and self.config.predict_normals:
             outputs["rendered_orientation_loss"] = orientation_loss(
-                weights.detach(), field_outputs[FieldHeadNames.NORMALS], ray_bundle.directions
+                weights.detach(),
+                field_outputs[FieldHeadNames.NORMALS],
+                ray_bundle.directions,
             )
 
             outputs["rendered_pred_normal_loss"] = pred_normal_loss(
@@ -296,7 +356,9 @@ class NerfactoModel(Model):
             )
 
         for i in range(self.config.num_proposal_iterations):
-            outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
+            outputs[f"prop_depth_{i}"] = self.renderer_depth(
+                weights=weights_list[i], ray_samples=ray_samples_list[i]
+            )
 
         return outputs
 
@@ -304,28 +366,42 @@ class NerfactoModel(Model):
         metrics_dict = {}
         image = batch["image"].to(self.device)
         metrics_dict["psnr"] = self.psnr(outputs["rgb"], image)
-        if self.training and ("weights_list" in outputs and "ray_samples_list" in outputs):
-            metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
+        if self.training and (
+            "weights_list" in outputs and "ray_samples_list" in outputs
+        ):
+            metrics_dict["distortion"] = distortion_loss(
+                outputs["weights_list"], outputs["ray_samples_list"]
+            )
         return metrics_dict
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = {}
         image = batch["image"].to(self.device)
         loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
-        if self.training and ("weights_list" in outputs and "ray_samples_list" in outputs):
-            loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
+        if self.training and (
+            "weights_list" in outputs and "ray_samples_list" in outputs
+        ):
+            loss_dict[
+                "interlevel_loss"
+            ] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
             )
             assert metrics_dict is not None and "distortion" in metrics_dict
-            loss_dict["distortion_loss"] = self.config.distortion_loss_mult * metrics_dict["distortion"]
+            loss_dict["distortion_loss"] = (
+                self.config.distortion_loss_mult * metrics_dict["distortion"]
+            )
             if self.config.predict_normals:
                 # orientation loss for computed normals
-                loss_dict["orientation_loss"] = self.config.orientation_loss_mult * torch.mean(
+                loss_dict[
+                    "orientation_loss"
+                ] = self.config.orientation_loss_mult * torch.mean(
                     outputs["rendered_orientation_loss"]
                 )
 
                 # ground truth supervision for normals
-                loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
+                loss_dict[
+                    "pred_normal_loss"
+                ] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
         return loss_dict
@@ -337,6 +413,9 @@ class NerfactoModel(Model):
         image = batch["image"].to(self.device)
         rgb = outputs["rgb"]
         acc = colormaps.apply_colormap(outputs["accumulation"])
+        # NOTE(Hang Gao @ 01/25): the depth is actually mostly *outside* of the unit sphere from the camera (~16%).
+        #  depth = outputs["depth"]
+        #  __import__("ipdb").set_trace()
         depth = colormaps.apply_depth_colormap(
             outputs["depth"],
             accumulation=outputs["accumulation"],
@@ -358,7 +437,11 @@ class NerfactoModel(Model):
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
         metrics_dict["lpips"] = float(lpips)
 
-        images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
+        images_dict = {
+            "img": combined_rgb,
+            "accumulation": combined_acc,
+            "depth": combined_depth,
+        }
 
         # normals to RGB for visualization. TODO: use a colormap
         if "normals" in outputs:

@@ -144,7 +144,8 @@ class FullImageDatamanager(DataManager, Generic[TDataset]):
             K, image, mask = _undistort_image(camera, distortion_params, data, image, K)
             data["image"] = torch.from_numpy(image)
             if mask is not None:
-                data["mask"] = mask
+                #  data["mask"] = mask
+                data["mask"] = ~mask
 
             cached_train.append(data)
 
